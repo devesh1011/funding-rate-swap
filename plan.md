@@ -227,6 +227,8 @@ Every 30 s, walks accounts with open positions. It reads them from contract view
 
 **Phase 2 is done when:** the oracle has advanced `cum_float` on testnet for ≥ 3 real hourly intervals, the maker has a two-sided book on both markets, and the keeper has liquidated a deliberately under-margined test account in a real testnet tx.
 
+**Status (2026-11-12 14:10 UTC): done ✅.** Maker two-sided on both markets ✅; keeper liquidation ✅ (`CKaH6c19…`), which exposed and fixed a penalty-cap bug (see `docs/deployments.md`); oracle ✅ with 5 real hourly intervals landed (10:00–14:00 UTC, 3/3 signers each). Bots run with `near-api-js` 7.4.0, pinned deliberately: 7.5.x had four releases on 2026-11-11.
+
 ---
 
 ## 6. Phase 3: NEAR Intents (`intents/`)

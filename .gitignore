@@ -15,3 +15,6 @@ secrets/
 submission*.json
 
 .DS_Store
+
+# bot logs
+bots/logs/

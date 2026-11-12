@@ -673,7 +673,11 @@ impl Contract {
             time_floor_secs: p.time_floor_secs as i128,
         };
         let mm_pos = mul_div_ceil(initial_margin(n, market.mark, secs_left, &risk), p.mm_ratio_bps as i128, BPS);
+        // Never take more than the account is worth: a penalty must not
+        // create bad debt. Taking over at mark leaves net unchanged, so the
+        // pre-liquidation net is the ceiling.
         let penalty = mul_div_floor(mm_pos, liquidation_penalty_bps(h.net(), h.mm), BPS)
+            .min(h.net().max(0))
             .min(victim.cash.max(0));
 
         let (vo, vn) = self.apply_fill(&mut victim, market_id, point, -n, market.mark);
@@ -686,15 +690,7 @@ impl Contract {
         let lh = self.health(&liq);
         require!(lh.net() >= lh.im, "liquidator lacks margin");
 
-        // Bad debt: once flat, cover any negative net balance from insurance.
-        if victim.positions.iter().all(|p| p.n == 0) {
-            let vh = self.health(&victim);
-            if vh.net() < 0 {
-                let cover = (-vh.net()).min(self.insurance.max(0));
-                self.insurance -= cover;
-                self.credit(&mut victim, cover);
-            }
-        }
+        self.cover_bad_debt_internal(&account_id, &mut victim);
         emit(
             "liquidation",
             json!({"account_id": account_id, "liquidator": liq_id, "market_id": market_id,
@@ -703,6 +699,16 @@ impl Contract {
         self.accounts.insert(account_id, victim);
         self.accounts.insert(liq_id, liq);
         I128(penalty)
+    }
+
+    /// Cover a flat account's negative net balance from the insurance fund.
+    /// Anyone can call it; returns the amount covered.
+    pub fn cover_bad_debt(&mut self, account_id: AccountId) -> I128 {
+        let mut acc = self.account(&account_id);
+        self.settle_mut(&account_id, &mut acc);
+        let covered = self.cover_bad_debt_internal(&account_id, &mut acc);
+        self.accounts.insert(account_id, acc);
+        I128(covered)
     }
 
     // =====================================================================
@@ -1022,6 +1028,25 @@ impl Contract {
             h.im += initial_margin(o.remaining, rate, secs_left, &Self::risk(&m));
         }
         h
+    }
+
+    /// Bad debt: once an account has no floating exposure left, cover any
+    /// negative net balance (cash plus its locked fixed legs) from insurance.
+    fn cover_bad_debt_internal(&mut self, id: &AccountId, acc: &mut Account) -> i128 {
+        if !acc.positions.iter().all(|p| p.n == 0) {
+            return 0;
+        }
+        let net = self.health(acc).net();
+        if net >= 0 {
+            return 0;
+        }
+        let cover = (-net).min(self.insurance.max(0));
+        if cover > 0 {
+            self.insurance -= cover;
+            self.credit(acc, cover);
+            emit("bad_debt_covered", json!({"account_id": id, "amount": I128(cover), "remaining": I128(-net - cover)}));
+        }
+        cover
     }
 
     fn debit_for_withdrawal(&mut self, id: &AccountId, amount: u128) {

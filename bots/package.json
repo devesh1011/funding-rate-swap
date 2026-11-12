@@ -1,0 +1,25 @@
+{
+  "name": "@fundswap/bots",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/lib/*.ts"
+  },
+  "scripts": {
+    "oracle": "node --env-file-if-exists=.env src/oracle/main.ts",
+    "maker": "node --env-file-if-exists=.env src/maker/main.ts",
+    "keeper": "node --env-file-if-exists=.env src/keeper/main.ts",
+    "fund": "node --env-file-if-exists=.env src/setup/fund.ts",
+    "check-encoding": "node --env-file-if-exists=.env src/setup/check-encoding.ts",
+    "test": "node --test test/",
+    "typecheck": "tsc --noEmit",
+    "demo:liquidation": "node --env-file-if-exists=.env src/setup/liquidation-demo.ts"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

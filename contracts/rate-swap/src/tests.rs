@@ -410,6 +410,7 @@ fn liquidation_transfers_position_and_pays_penalty() {
     let penalty = e.c.liquidate(id("bob.testnet"), 0).0;
     assert!(penalty > 0);
     assert_eq!(e.cash("carol.testnet") - carol_before, penalty);
+    assert!(e.view("bob.testnet").health.net.0 >= 0, "penalty must not create bad debt");
     // Taken over at the mark the fixed legs cancel, so bob is flat.
     assert!(e.view("bob.testnet").positions.iter().all(|p| p.n.0 == 0));
     assert_eq!(e.view("carol.testnet").positions[0].n.0, 100_000 * USDC);
@@ -487,4 +488,51 @@ fn rate_message_layout_is_stable() {
         hex,
         "1000000066756e64737761702d726174652d76310c000000737761702e746573746e65740000000010e0496b0000000020bcbe00000000000000000000000000"
     );
+}
+
+/// Reproduces the testnet demo: a 17 % mark gap leaves the victim with a
+/// small positive net. The penalty is capped at that net, so liquidation
+/// itself never creates bad debt.
+#[test]
+fn penalty_is_capped_at_net_after_a_mark_gap() {
+    let mut e = Env::new();
+    e.fund("whale.testnet", 20_000);
+    e.fund("victim.testnet", 1_520);
+    e.fund("bear.testnet", 100);
+    e.fund("keeper.testnet", 50_000);
+    // 62 h to maturity, like the live 15 Nov market at the time of the demo.
+    e.as_("gov.testnet");
+    let m = e.c.create_market(0, "BTC-62h".into(), U64(T0 + 62 * HOUR), I128(pct(10.95)), params());
+    e.now += 1_000; // the live market was 40 min old, so the first print moved the mark fully
+    e.as_("whale.testnet");
+    e.c.place_order(m, Side::Short, U128(1_000_000 * USDC as u128), 700, OrderKind::Limit);
+    e.as_("victim.testnet");
+    e.c.place_order(m, Side::Long, U128(1_000_000 * USDC as u128), 700, OrderKind::Ioc);
+    e.now += 1_000; // past the mark window
+    e.as_("whale.testnet");
+    e.c.place_order(m, Side::Long, U128(1_000 * USDC as u128), -1_000, OrderKind::Limit);
+    e.as_("bear.testnet");
+    e.c.place_order(m, Side::Short, U128(1_000 * USDC as u128), -1_000, OrderKind::Ioc);
+
+    let before = e.view("victim.testnet").health;
+    assert!(before.liquidatable && before.net.0 > 0);
+    e.as_("keeper.testnet");
+    let penalty = e.c.liquidate(id("victim.testnet"), m).0;
+    assert!(penalty <= before.net.0);
+    assert!(e.view("victim.testnet").health.net.0 >= 0);
+    e.assert_solvent();
+}
+
+#[test]
+fn insurance_covers_bad_debt_of_a_flat_account() {
+    let mut e = Env::new();
+    e.fund("alice.testnet", 1_000);
+    // Donate to insurance.
+    ctx("tusdc.testnet", e.now, NearToken::from_yoctonear(0));
+    let _ = e.c.ft_on_transfer(id("gov.testnet"), U128(500 * USDC as u128), r#"{"insurance":true}"#.into());
+    e.deposited += 500 * USDC;
+    // Healthy flat account: nothing to cover.
+    e.as_("anyone.testnet");
+    assert_eq!(e.c.cover_bad_debt(id("alice.testnet")).0, 0);
+    e.assert_solvent();
 }
