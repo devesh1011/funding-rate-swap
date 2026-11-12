@@ -107,12 +107,17 @@ export function useToast() {
 
 // ---------------------------------------------------------------- transactions
 
-export interface Call {
-  receiverId: string;
+export interface Action {
   method: string;
   args: Record<string, unknown>;
   gas: string;
   deposit: string;
+}
+
+export interface Call extends Action {
+  receiverId: string;
+  /** Actions that run first in the same transaction (e.g. a storage_deposit before a transfer). */
+  before?: Action[];
 }
 
 interface Outcome {
@@ -145,23 +150,23 @@ export function useTx() {
   const { signAndSendTransactions } = useNearWallet();
   const { push, update } = useToast();
   return useCallback(
-    async <T,>(title: string, calls: Call[]): Promise<{ ok: boolean; value?: T }> => {
+    async <T,>(title: string, calls: Call[]): Promise<{ ok: boolean; value?: T; hashes?: string[] }> => {
       const id = push({ kind: "pending", title: `${title}: confirm in wallet` });
       try {
         const outcomes = (await signAndSendTransactions({
           transactions: calls.map((c) => ({
             receiverId: c.receiverId,
-            actions: [Actions.functionCall(c.method, c.args, c.gas, c.deposit)],
+            actions: [...(c.before ?? []), c].map((a) => Actions.functionCall(a.method, a.args, a.gas, a.deposit)),
           })),
         })) as unknown as Outcome[];
         const hashes = outcomes.map((o) => o.transaction.hash);
         const err = outcomes.map(failure).find(Boolean);
         if (err) {
           update(id, { kind: "error", title: `${title} failed`, detail: err, hashes });
-          return { ok: false };
+          return { ok: false, hashes };
         }
         update(id, { kind: "ok", title, hashes });
-        return { ok: true, value: decode<T>(outcomes[outcomes.length - 1]) };
+        return { ok: true, value: decode<T>(outcomes[outcomes.length - 1]), hashes };
       } catch (e) {
         update(id, { kind: "error", title: `${title} not sent`, detail: e instanceof Error ? e.message : String(e) });
         return { ok: false };

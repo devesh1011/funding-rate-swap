@@ -115,18 +115,24 @@ export function OrderTicket({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-1 rounded-full border border-white/10 p-1">
-        {(["Long", "Short"] as Side[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setSide(s)}
-            className={`rounded-full py-2.5 text-sm transition ${
- side === s ? (s === "Long" ? "bg-lime text-ink" : "bg-white text-ink") : "text-white/70 hover:text-white"
-            }`}
-          >
-            {s === "Long" ? "Long · pay fixed" : "Short · get fixed"}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2">
+        {(["Long", "Short"] as Side[]).map((s) => {
+          const on = side === s;
+          return (
+            <button
+              key={s}
+              onClick={() => setSide(s)}
+              className={`rounded-lg border px-3 py-2.5 text-left transition ${
+                on ? (s === "Long" ? "border-lime bg-lime/10" : "border-white/70 bg-white/10") : "border-white/10 hover:border-white/25"
+              }`}
+            >
+              <div className={`text-[0.95rem] font-semibold ${on ? (s === "Long" ? "text-lime" : "text-white") : "text-white/75"}`}>
+                {s === "Long" ? "Long YU ↗" : "Short YU ↘"}
+              </div>
+              <div className="mt-0.5 text-[0.7rem] text-white/55">{s === "Long" ? "Pay fixed, rcv. underlying" : "Pay underlying, rcv. fixed"}</div>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mt-4 flex gap-5 border-b border-white/10">
@@ -215,12 +221,12 @@ export function OrderTicket({
         <button
           disabled={!!problem || busy}
           onClick={submit}
-          className={`pill mt-5 w-full py-3.5 ${side === "Long" ? "pill-lime" : "bg-white text-ink"} disabled:cursor-not-allowed disabled:opacity-40`}
+          className={`mt-5 w-full rounded-lg py-3.5 font-medium text-ink ${side === "Long" ? "bg-lime" : "bg-white"} disabled:cursor-not-allowed disabled:opacity-40`}
         >
           {busy ? "Confirm in wallet…" : `${side === "Long" ? "Long" : "Short"} ${size || 0} YU`}
         </button>
       ) : (
-        <button onClick={onConnect} className="pill pill-lime mt-5 w-full py-3.5">
+        <button onClick={onConnect} className="mt-5 w-full rounded-lg bg-lime py-3.5 font-medium text-ink">
           Connect wallet
         </button>
       )}

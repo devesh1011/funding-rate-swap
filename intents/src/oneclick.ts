@@ -245,6 +245,14 @@ export function creditToMsg(trader: string): string {
   return JSON.stringify({ credit_to: trader });
 }
 
+/** A refund or payout address valid on `blockchain` (as 1Click names chains). */
+export function isAddressFor(blockchain: string, address: string): boolean {
+  if (["eth", "base", "arb", "pol", "bsc", "op", "avax", "gnosis", "hypercore"].includes(blockchain)) return /^0x[0-9a-fA-F]{40}$/.test(address);
+  if (blockchain === "sol") return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  if (blockchain === "near") return isNearAccountId(address);
+  return false;
+}
+
 /** NEAR account id rules (2–64 chars, lowercase parts split by `.`, `-`, `_`). */
 export function isNearAccountId(id: string): boolean {
   return id.length >= 2 && id.length <= 64 && /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id);

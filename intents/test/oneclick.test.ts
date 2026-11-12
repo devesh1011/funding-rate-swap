@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   creditToMsg,
+  isAddressFor,
   depositToSwapQuote,
   hyperliquidUsdc,
   isNearAccountId,
@@ -43,4 +44,13 @@ test("asset helpers", () => {
   assert.throws(() => nep141Contract("1cs_v1:hypercore:hip1:0x6d"));
   const hl = hyperliquidUsdc([tok("1cs_v1:hypercore:erc20:0xb8", "hypercore"), tok("1cs_v1:hypercore:hip1:0x6d", "hypercore", 8)]);
   assert.equal(hl.decimals, 8);
+});
+
+test("payout and refund addresses are checked per chain", () => {
+  assert.ok(isAddressFor("base", "0x5166c3aeD176649B6d6ffE647c452b6b47786015"));
+  assert.ok(isAddressFor("hypercore", "0x5166c3aeD176649B6d6ffE647c452b6b47786015"));
+  assert.ok(!isAddressFor("base", "0x5166c3ae"));
+  assert.ok(isAddressFor("sol", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"));
+  assert.ok(!isAddressFor("sol", "0x5166c3aeD176649B6d6ffE647c452b6b47786015"));
+  assert.ok(!isAddressFor("unknown-chain", "0x5166c3aeD176649B6d6ffE647c452b6b47786015"));
 });

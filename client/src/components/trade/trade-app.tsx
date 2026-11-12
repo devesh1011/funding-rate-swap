@@ -6,13 +6,14 @@ import { NearProvider, useNearWallet } from "near-connect-hooks";
 import { LogoMark, Wordmark } from "@/components/logo";
 import type { FundingPoint, Point } from "@/lib/data";
 import { explorer, NETS, type Net } from "@/lib/config";
-import { hourUtc, pct, usdCompact } from "@/lib/format";
+import { date, hourUtc, pct, usdCompact } from "@/lib/format";
 import { rateToPct, shortName, swapReads, tickToPct, toNum, type MarketView } from "@/lib/swap";
 import { NetSwitch } from "@/components/net-switch";
 import type { LiveMarket } from "@/app/api/live/route";
 import { OrderBook } from "./book";
 import { ToastProvider, useNow, usePoll } from "./hooks";
-import { MarginPanel } from "./margin";
+import { FundsModal } from "./funds-modal";
+import { AccountCard, type FundsMode } from "./margin";
 import { Portfolio } from "./portfolio";
 import { RateChart } from "./rate-chart";
 import { OrderTicket } from "./ticket";
@@ -41,10 +42,10 @@ export function TradeApp({ initial, net }: { initial: TradeInitial; net: Net }) 
 
 function Panel({ title, right, children, className = "" }: { title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`glass !rounded-[18px] !shadow-[0_0_30px_rgb(198_244_50/0.06)] ${className}`}>
+    <section className={`rounded-lg border border-white/[0.07] bg-[#0f0f11] ${className}`}>
       {title && (
-        <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
-          <h2 className="label text-[0.68rem]">{title}</h2>
+        <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+          <h2 className="text-[0.8rem] font-medium text-white/85">{title}</h2>
           {right}
         </div>
       )}
@@ -55,13 +56,6 @@ function Panel({ title, right, children, className = "" }: { title?: string; rig
 
 function countdown(secs: number) {
   return `${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`;
-}
-
-function maturesIn(ts: number, nowSec: number) {
-  const s = ts - nowSec;
-  if (s <= 0) return "matured";
-  const d = Math.floor(s / 86_400);
-  return `${d}d ${Math.floor((s % 86_400) / 3_600)}h`;
 }
 
 function Trade({ initial }: { initial: TradeInitial }) {
@@ -116,92 +110,111 @@ function Trade({ initial }: { initial: TradeInitial }) {
     rateInput?.marketId === market.id ? rateInput.value : (ask !== null ? tickToPct(ask) : rateToPct(market.mark)).toFixed(2);
   const setTicketRate = (value: string) => setRateInput({ marketId: market.id, value });
 
+  const [funds, setFunds] = useState<FundsMode | null>(null);
+  const openFunds = (m: FundsMode) => (signedAccountId ? setFunds(m) : void signIn());
+  const daysLeft = Math.max(0, Math.ceil((market.maturity_ts - nowSec) / 86_400));
+
   const strip: [string, ReactNode][] = [
-    ["Implied (mid)", <span key="i" className="text-lime">{pct(implied)}</span>],
-    ["Mark", pct(rateToPct(market.mark))],
-    ["Bid / ask", `${bid === null ? "—" : pct(tickToPct(bid))} / ${ask === null ? "—" : pct(tickToPct(ask))}`],
-    ["Realized 24h", pct(realized24)],
-    ["Open interest", usdCompact(toNum(market.long_oi))],
+    ["Mark APR", pct(rateToPct(market.mark))],
+    ["Underlying APR (24h)", pct(realized24)],
+    ["Notional OI", usdCompact(toNum(market.long_oi))],
     ["24h volume", `${Math.round(toNum(market.volume_24h)).toLocaleString("en-US")} YU`],
     ["Next settlement", clock === null ? "—" : countdown(3_600 - (Math.floor(clock / 1000) % 3_600))],
-    ["Last settled", feed ? `${hourUtc(feed.last_ts)} UTC` : "—"],
-    ["Matures", maturesIn(market.maturity_ts, nowSec)],
   ];
 
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-white/8 bg-ink/85 backdrop-blur">
-        <div className="mx-auto flex max-w-[1800px] items-center gap-3 px-4 py-3 sm:gap-6 lg:px-6">
+    <div className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-ink/90 backdrop-blur">
+        <div className="flex items-center gap-4 px-4 py-3 lg:px-5">
           <Link href={c.base || "/"} className="flex items-center gap-2.5" aria-label="Fundswap home">
             <LogoMark className="size-7 text-lime" />
             <Wordmark className="hidden text-2xl leading-none sm:inline" />
           </Link>
-          <nav className="flex min-w-0 gap-1 overflow-x-auto">
-            {markets.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setMarketId(m.id)}
-                className={`rounded-full px-4 py-1.5 text-xs whitespace-nowrap ${m.id === market.id ? "bg-lime text-ink" : "text-white/70 hover:bg-white/5 hover:text-white"}`}
-              >
-                BTC · {shortName(m)}
-              </button>
-            ))}
+          <nav className="ml-4 hidden items-center gap-7 text-[0.95rem] lg:flex">
+            <span className="text-white">Trade</span>
+            <Link href={`${c.base || "/"}#markets`} className="text-white/60 hover:text-white">Markets</Link>
+            <Link href={`${c.base || "/"}#how-it-works`} className="text-white/60 hover:text-white">How it works</Link>
+            <Link href="/docs" className="text-white/60 hover:text-white">Docs</Link>
           </nav>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2.5">
             <div className="hidden md:block">
               <NetSwitch net={c.id} page="trade" />
             </div>
+            <button onClick={() => openFunds("deposit")} className="hidden rounded-lg bg-lime px-5 py-2 text-sm font-medium text-ink hover:brightness-110 sm:block">
+              Deposit
+            </button>
             {signedAccountId ? (
-              <button onClick={() => signOut()} title="Disconnect" className="pill border border-white/20 px-4 py-2 text-xs hover:border-lime/60">
-                {signedAccountId.length > 22 ? `${signedAccountId.slice(0, 10)}…${signedAccountId.slice(-8)}` : signedAccountId}
+              <button onClick={() => signOut()} title="Disconnect" className="rounded-lg border border-white/15 px-3.5 py-2 text-sm hover:border-lime/60">
+                {signedAccountId.length > 20 ? `${signedAccountId.slice(0, 8)}…${signedAccountId.slice(-6)}` : signedAccountId}
               </button>
             ) : (
-              <button onClick={() => signIn()} disabled={loading} className="pill pill-lime px-5 py-2 text-sm whitespace-nowrap">
-                <span className="sm:hidden">Connect</span>
-                <span className="hidden sm:inline">Connect wallet</span>
+              <button onClick={() => signIn()} disabled={loading} className="rounded-lg border border-white/15 px-3.5 py-2 text-sm whitespace-nowrap hover:border-lime/60">
+                Connect wallet
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1800px] px-4 py-4 lg:px-6">
-        <div className="flex flex-wrap items-end gap-x-10 gap-y-3 px-1 pb-4">
-          <div>
-            <h1 className="text-[1.65rem] leading-none font-semibold tracking-tight">
-              BTC funding <span className="text-lime">· {shortName(market)}</span>
-            </h1>
-            <a href={explorer(c.id).account(c.swap)} target="_blank" rel="noreferrer" className="mt-1 block text-[0.65rem] text-white/45 hover:text-lime">
-              {market.effective_mode === "Active" ? "Active" : market.effective_mode} · Hyperliquid BTC hourly funding · {c.label} · {c.swap} ↗
-            </a>
-          </div>
-          {strip.map(([label, value]) => (
-            <div key={label}>
-              <div className="label text-[0.55rem] text-white/50">{label}</div>
-              <div className="mt-1 text-[0.95rem] font-medium tnum">{value}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px_360px]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <Panel title="Implied vs underlying">
+      <main className="flex-1 p-1.5">
+        <div className="grid gap-1.5 xl:grid-cols-[minmax(0,1fr)_330px_370px]">
+          {/* Market, stats and chart */}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Panel>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+                <label className="relative flex items-center gap-2">
+                  <span className="sr-only">Market</span>
+                  <select
+                    value={market.id}
+                    onChange={(e) => setMarketId(Number(e.target.value))}
+                    className="appearance-none bg-transparent pr-6 text-xl font-semibold tracking-tight outline-none"
+                  >
+                    {markets.map((m) => (
+                      <option key={m.id} value={m.id} className="bg-ink text-base">
+                        BTC funding · {shortName(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute right-0 text-white/50">▾</span>
+                </label>
+                <span className="rounded-md border border-white/12 px-2 py-0.5 text-xs text-white/70">Hyperliquid</span>
+                <span className="border-l border-white/10 pl-6 text-xl font-semibold tracking-tight">
+                  {daysLeft} days <span className="text-sm font-normal text-white/55">(Matures {date(market.maturity_ts)})</span>
+                </span>
+                <a href={explorer(c.id).account(c.swap)} target="_blank" rel="noreferrer" className="ml-auto text-xs text-white/45 hover:text-lime">
+                  {c.swap} ↗
+                </a>
+              </div>
+            </Panel>
+            <Panel>
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-3 px-4 py-3.5">
+                <div>
+                  <div className="text-[1.75rem] leading-none font-semibold text-lime tnum">{pct(implied)}</div>
+                  <div className="mt-1 text-xs text-lime/80">Implied APR</div>
+                </div>
+                {strip.map(([label, value]) => (
+                  <div key={label}>
+                    <div className="text-xs text-white/55 underline decoration-white/20 decoration-dotted underline-offset-4">{label}</div>
+                    <div className="mt-1 text-[0.95rem] font-medium tnum">{value}</div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+            <Panel className="flex-1">
               <div className="p-4">
                 <RateChart candles={live.data?.candles ?? []} mids={initial.implied[market.id] ?? []} realized={initial.realized} />
               </div>
             </Panel>
-            <Panel className="hidden xl:block">
-              <Portfolio account={account.data} markets={markets} trades={myTrades.data} onDone={refreshAll} />
-            </Panel>
           </div>
 
+          {/* Order book / market trades */}
           <Panel>
-            <div className="grid grid-cols-2 border-b border-white/8">
+            <div className="grid grid-cols-2 border-b border-white/[0.07]">
               {(["book", "trades"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setBookTab(t)}
-                  className={`label py-3 text-[0.68rem] ${bookTab === t ? "bg-white/[0.04] text-lime" : "text-white/55 hover:text-white"}`}
+                  className={`py-3 text-sm ${bookTab === t ? "border-b-2 border-lime bg-white/[0.03] font-medium text-white" : "text-white/55 hover:text-white"}`}
                 >
                   {t === "book" ? "Order book" : "Market trades"}
                 </button>
@@ -216,42 +229,69 @@ function Trade({ initial }: { initial: TradeInitial }) {
             </div>
           </Panel>
 
-          <div className="flex flex-col gap-4">
-            <Panel title="Trade">
-              <div className="p-4">
-                <OrderTicket
-                  market={market}
-                  account={account.data}
-                  book={book.data}
-                  rate={ticketRate}
-                  onRate={setTicketRate}
-                  now={nowSec}
-                  connected={!!signedAccountId}
-                  onConnect={() => signIn()}
-                  onDone={refreshAll}
-                />
-              </div>
-            </Panel>
-            <Panel title="Margin" right={<span className="label text-[0.55rem] text-white/40">{c.symbol}</span>}>
-              <div className="p-4">
-                {signedAccountId ? (
-                  <MarginPanel accountId={signedAccountId} account={account.data} walletBalance={wallet.data} onDone={refreshAll} />
-                ) : (
-                  <p className="text-sm leading-6 text-white/55">
-                    {c.faucet
-                      ? "Connect a NEAR testnet wallet (a .testnet account). You can mint 10,000 test tUSDC here, deposit it as margin, and trade against the live book."
-                      : `Connect a NEAR mainnet wallet. Margin is native USDC on NEAR, capped at ${c.depositCap} USDC per account while in beta. To try it free, switch to Testnet.`}
-                  </p>
-                )}
-              </div>
-            </Panel>
-          </div>
+          {/* Order ticket */}
+          <Panel>
+            <div className="p-4">
+              <OrderTicket
+                market={market}
+                account={account.data}
+                book={book.data}
+                rate={ticketRate}
+                onRate={setTicketRate}
+                now={nowSec}
+                connected={!!signedAccountId}
+                onConnect={() => signIn()}
+                onDone={refreshAll}
+              />
+            </div>
+          </Panel>
 
-          <Panel className="xl:hidden">
+          {/* Positions, orders, history */}
+          <Panel className="min-h-[320px] xl:col-span-2">
             <Portfolio account={account.data} markets={markets} trades={myTrades.data} onDone={refreshAll} />
+          </Panel>
+
+          {/* Margin account */}
+          <Panel>
+            <div className="p-4">
+              <AccountCard
+                account={account.data}
+                walletBalance={wallet.data}
+                connected={!!signedAccountId}
+                onConnect={() => signIn()}
+                onOpen={openFunds}
+                onDone={refreshAll}
+              />
+            </div>
           </Panel>
         </div>
       </main>
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] px-4 py-2 text-xs text-white/55">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 rounded border border-lime/40 px-2 py-0.5 text-lime">
+            <span className="live-dot size-1.5 rounded-full bg-lime" /> Online · {c.label}
+          </span>
+          <span>Oracle: {feed ? `last settled ${hourUtc(feed.last_ts)} UTC` : "—"}</span>
+        </div>
+        <div className="flex items-center gap-5">
+          <Link href={c.base || "/"} className="hover:text-white">Home</Link>
+          <Link href="/docs" className="hover:text-white">Docs</Link>
+          <a href={explorer(c.id).account(c.swap)} target="_blank" rel="noreferrer" className="hover:text-white">Contract ↗</a>
+        </div>
+      </footer>
+
+      {funds && signedAccountId && (
+        <FundsModal
+          mode={funds}
+          onMode={setFunds}
+          onClose={() => setFunds(null)}
+          accountId={signedAccountId}
+          account={account.data}
+          walletBalance={wallet.data}
+          onDone={refreshAll}
+        />
+      )}
     </div>
   );
 }
