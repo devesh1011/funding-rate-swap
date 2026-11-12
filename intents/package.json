@@ -1,0 +1,21 @@
+{
+  "name": "@fundswap/intents",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./oneclick": "./src/oneclick.ts"
+  },
+  "scripts": {
+    "quotes": "node --env-file-if-exists=.env scripts/quotes.ts",
+    "roundtrip": "node --env-file-if-exists=.env scripts/roundtrip.ts",
+    "test": "node --test test/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fundswap/bots": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

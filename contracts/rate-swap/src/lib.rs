@@ -26,6 +26,8 @@ pub const STORAGE_DEPOSIT: NearToken = NearToken::from_millinear(100);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_FT_TRANSFER_CALL: Gas = Gas::from_tgas(60);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
+/// Headroom left for the rest of `ft_on_transfer` after scheduling a forward.
+const GAS_FORWARD_MARGIN: Gas = Gas::from_tgas(10);
 const RATE_DOMAIN: &str = "fundswap-rate-v1";
 
 #[ext_contract(ext_ft)]
@@ -335,9 +337,29 @@ impl Contract {
         }
         let target = parsed.credit_to.unwrap_or_else(|| env::panic_str("msg needs credit_to"));
         let mut acc = self.accounts.get(&target).cloned().unwrap_or_default();
-        self.credit(&mut acc, amount_i);
+        let excess = self.excess_over_cap(&acc, amount_i);
+        let credited = amount_i - excess;
+        self.credit(&mut acc, credited);
         self.accounts.insert(target.clone(), acc);
-        emit("deposit", json!({"account_id": target, "amount": amount, "from": sender_id}));
+        emit("deposit", json!({"account_id": target, "amount": U128(credited as u128), "from": sender_id}));
+        if excess > 0 {
+            // Over the cap: the excess is never credited and goes to the
+            // trader's own balance in NEAR Intents; `on_transfer_out`
+            // credits back whatever does not leave. Detached on purpose: the
+            // value returned here must stay 0, or the token would refund the
+            // solver.
+            let intents = self.intents_contract.clone().expect("checked by excess_over_cap");
+            let _ = ext_ft::ext(self.collateral.clone())
+                .with_attached_deposit(NearToken::from_yoctonear(1))
+                .with_static_gas(GAS_FT_TRANSFER_CALL)
+                .ft_transfer_call(intents, U128(excess as u128), None, target.to_string())
+                .then(
+                    Self::ext(env::current_account_id())
+                        .with_static_gas(GAS_CALLBACK)
+                        .on_transfer_out(target.clone(), U128(excess as u128), true),
+                );
+            emit("deposit_over_cap", json!({"account_id": target, "forwarded": U128(excess as u128)}));
+        }
         PromiseOrValue::Value(U128(0))
     }
 
@@ -923,6 +945,23 @@ impl Contract {
                 (f.cum, f.last_ts)
             }
         }
+    }
+
+    /// How much of a `credit_to` deposit lies above `deposit_cap`. Zero when
+    /// there is no cap, no intents contract to forward to, or not enough gas
+    /// left to forward: crediting over the cap beats a panic, which would
+    /// refund the solver instead of the trader.
+    fn excess_over_cap(&self, acc: &Account, amount: i128) -> i128 {
+        let (Some(cap), Some(_)) = (self.deposit_cap, &self.intents_contract) else {
+            return 0;
+        };
+        let excess = (acc.cash + amount - cap as i128).clamp(0, amount);
+        let gas_left = env::prepaid_gas().saturating_sub(env::used_gas());
+        let needed = GAS_FT_TRANSFER_CALL.saturating_add(GAS_CALLBACK).saturating_add(GAS_FORWARD_MARGIN);
+        if gas_left < needed {
+            return 0;
+        }
+        excess
     }
 
     fn credit(&mut self, acc: &mut Account, delta: i128) {

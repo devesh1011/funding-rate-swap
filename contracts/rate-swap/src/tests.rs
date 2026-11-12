@@ -264,6 +264,76 @@ fn credit_to_never_refunds_and_registers() {
     e.assert_solvent();
 }
 
+/// Mainnet-style config: 10 USDC cap per account, intents configured.
+fn capped_env() -> Env {
+    let mut e = Env::new();
+    e.as_("gov.testnet");
+    e.c.set_deposit_cap(Some(U128(10 * USDC as u128)));
+    e.c.set_intents_contract(Some(id("intents.testnet")));
+    e
+}
+
+fn credit_to(e: &mut Env, usdc: i128, gas_tgas: u64) -> PromiseOrValue<U128> {
+    testing_env!(VMContextBuilder::new()
+        .current_account_id(id("swap.testnet"))
+        .predecessor_account_id(id("tusdc.testnet"))
+        .block_timestamp(e.now * 1_000_000_000)
+        .prepaid_gas(Gas::from_tgas(gas_tgas))
+        .build());
+    e.c.ft_on_transfer(
+        id("solver.near"),
+        U128((usdc * USDC) as u128),
+        r#"{"credit_to":"trader.testnet"}"#.into(),
+    )
+}
+
+#[test]
+fn credit_to_over_cap_forwards_excess_to_intents() {
+    let mut e = capped_env();
+    assert!(matches!(credit_to(&mut e, 7, 300), PromiseOrValue::Value(U128(0))));
+    assert!(near_sdk::test_utils::get_created_receipts().is_empty());
+    // 7 + 7 > 10: 3 credited, 4 forwarded, and still nothing refunded.
+    assert!(matches!(credit_to(&mut e, 7, 300), PromiseOrValue::Value(U128(0))));
+    let receipts = near_sdk::test_utils::get_created_receipts();
+    assert_eq!(receipts.len(), 2, "ft_transfer_call + on_transfer_out");
+    assert_eq!(receipts[0].receiver_id, id("tusdc.testnet"));
+    e.deposited += 10 * USDC; // 4 left the contract
+    assert_eq!(e.cash("trader.testnet"), 10 * USDC);
+    e.assert_solvent();
+}
+
+#[test]
+fn failed_forward_is_credited_back() {
+    let mut e = capped_env();
+    let _ = credit_to(&mut e, 14, 300);
+    assert_eq!(e.cash("trader.testnet"), 10 * USDC);
+    testing_env!(
+        VMContextBuilder::new()
+            .current_account_id(id("swap.testnet"))
+            .predecessor_account_id(id("swap.testnet"))
+            .block_timestamp(e.now * 1_000_000_000)
+            .build(),
+        near_sdk::test_vm_config(),
+        near_sdk::RuntimeFeesConfig::test(),
+        Default::default(),
+        vec![near_sdk::PromiseResult::Failed],
+    );
+    e.c.on_transfer_out(id("trader.testnet"), U128(4 * USDC as u128), true);
+    e.deposited += 14 * USDC;
+    assert_eq!(e.cash("trader.testnet"), 14 * USDC, "over the cap, but nothing lost");
+    e.assert_solvent();
+}
+
+#[test]
+fn credit_to_without_gas_to_forward_credits_everything() {
+    let mut e = capped_env();
+    let _ = credit_to(&mut e, 14, 50);
+    assert!(near_sdk::test_utils::get_created_receipts().is_empty());
+    e.deposited += 14 * USDC;
+    assert_eq!(e.cash("trader.testnet"), 14 * USDC);
+    e.assert_solvent();
+}
+
 #[test]
 #[should_panic(expected = "unsupported token")]
 fn other_tokens_rejected() {

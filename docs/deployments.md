@@ -57,6 +57,14 @@ The staged liquidation below exposed a bug: the penalty was capped at the victim
 | Treasury donates 400 tUSDC to insurance (`msg: {"insurance":true}`) | `3PuzHqJxdmCBCFp8dZWcjCD7NDnELn3JmH8f5UjxSR7m` |
 | `cover_bad_debt(demo-victim)`: 341.96 tUSDC covered, victim net = 0 | `7UzuzdRzGcLPN2UuA5wgYYP16w6NNrACm1zzciUgXcoE` |
 
+### Contract upgrade (2026-11-12 14:20 UTC)
+
+`credit_to` deposits (the 1Click path) now honour `deposit_cap`: the contract credits up to the cap and forwards the excess to the trader's own `intents.near` balance, never refunding the solver. This changes nothing on testnet, where there is no cap; the redeploy keeps the testnet wasm identical to what goes to mainnet.
+
+| Step | Tx |
+| --- | --- |
+| Redeploy `fundswap-lab.testnet` | `A42ypc4pgsCv6gDC8goAWgmp9QNxSWwctLBTFXZkQoj7` |
+
 ## Bots (phase 2)
 
 | Bot | Account | Funded with |

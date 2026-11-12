@@ -21,6 +21,19 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
+  intents:
+    dependencies:
+      '@fundswap/bots':
+        specifier: workspace:*
+        version: link:../bots
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+
 packages:
 
   '@noble/ciphers@2.2.0':

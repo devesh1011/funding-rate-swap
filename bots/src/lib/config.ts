@@ -6,6 +6,8 @@ const env = (k: string, d?: string): string => {
   return v;
 };
 
+export type Role = "ORACLE" | "MAKER" | "KEEPER" | "TREASURY" | "TRADER";
+
 export const config = {
   network: env("NEAR_NETWORK", "testnet") as Network,
   get rpcUrl() {
@@ -13,7 +15,7 @@ export const config = {
   },
   swap: env("SWAP_CONTRACT", "fundswap-lab.testnet"),
   collateral: env("COLLATERAL_TOKEN", "tusdc.token.primitives.testnet"),
-  account: (role: "ORACLE" | "MAKER" | "KEEPER" | "TREASURY", fallback: string) => env(`${role}_ACCOUNT`, fallback),
+  account: (role: Role, fallback: string) => env(`${role}_ACCOUNT`, fallback),
   hyperliquidUrl: env("HYPERLIQUID_INFO_URL", "https://api.hyperliquid.xyz/info"),
   explorer(txHash: string) {
     return `https://${this.network === "testnet" ? "testnet." : ""}nearblocks.io/txns/${txHash}`;

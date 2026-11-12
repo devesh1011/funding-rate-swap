@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Account, JsonRpcProvider, actions, teraToGas, type KeyPairString } from "near-api-js";
-import { config } from "./config.ts";
+import { config, type Role } from "./config.ts";
 
 export const provider = new JsonRpcProvider({ url: config.rpcUrl });
 
@@ -14,7 +14,7 @@ function secretKey(role: string, accountId: string): KeyPairString {
   return JSON.parse(readFileSync(file, "utf8")).private_key as KeyPairString;
 }
 
-export function loadAccount(role: "ORACLE" | "MAKER" | "KEEPER" | "TREASURY", fallbackId: string): Account {
+export function loadAccount(role: Role, fallbackId: string): Account {
   const id = config.account(role, fallbackId);
   return new Account(id, provider, secretKey(role, id));
 }
