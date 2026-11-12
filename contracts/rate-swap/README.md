@@ -9,7 +9,7 @@ Funding-rate swap market on NEAR: an on-chain order book in implied APR, cross m
 - `tests/sandbox.rs` runs end to end on a local node against a real token (`../test-token`).
 
 ```bash
-cargo test --lib                    # 32 unit tests
+cargo test --lib                    # 41 unit tests
 cargo test --test sandbox           # local-node end to end (~1 min)
 cargo near build non-reproducible-wasm
 ```
