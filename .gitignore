@@ -1,0 +1,17 @@
+# build output
+target/
+node_modules/
+.next/
+dist/
+
+# secrets: keys live in env files and ~/.near-credentials, never in git
+.env
+.env.*
+!.env.example
+secrets/
+*.key.json
+
+# submission payload contains personal data
+submission*.json
+
+.DS_Store

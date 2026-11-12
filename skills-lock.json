@@ -1,0 +1,53 @@
+{
+  "version": 2,
+  "skills": {
+    "near-ai-cloud": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-ai-cloud/SKILL.md",
+      "computedHash": "826d96207ef3add15ce3101d383ec42d21d19222bbbd1642daaca435d1ebd3bc"
+    },
+    "near-api-js": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-api-js/SKILL.md",
+      "computedHash": "0a791db403821eacd420c3ea5386d5252ccf39a5f39e6ec4d5231bf37cfd88e5"
+    },
+    "near-cli-rs": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-cli-rs/SKILL.md",
+      "computedHash": "b351625429c77410418b5500dd92fa79a208f7e70ed63447b2fc33b457a0edf4"
+    },
+    "near-contract-audit": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-contract-audit/SKILL.md",
+      "computedHash": "d1c04aa6b1dd0dae6404f2781fc2e38bcfd9ef7789dd8e8ef1e59ed2c0c774ec"
+    },
+    "near-dapp": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-dapp/SKILL.md",
+      "computedHash": "af44d8e70d9e9c41eaa64a036c9585605454a1a240fc218aef3b902bc0ac5e62"
+    },
+    "near-intents": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-intents/SKILL.md",
+      "computedHash": "9023339c6512e8d6dbeb2563f6cbe997b1a6ef48df8fd0de3ecc98b0e01282c1"
+    },
+    "near-kit": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-kit/SKILL.md",
+      "computedHash": "fc6c5ca5b39cbe428ae7b0760c3817e76fb9aee9c7897df036a46bed9bb087f4"
+    },
+    "near-smart-contracts": {
+      "source": "near/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/near-smart-contracts/SKILL.md",
+      "computedHash": "a920325e87aae4da844a3678543bd350779c8fc70d376b59feccd61c1f191fa8"
+    }
+  }
+}
