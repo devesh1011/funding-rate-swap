@@ -1,9 +1,9 @@
 // Browser-safe access to the rate-swap contract: typed views and the unit
 // conversions the trading UI needs. Amounts stay bigint until display.
 
-import { COLLATERAL_TOKEN, PUBLIC_RPC, SWAP_CONTRACT } from "./config";
+import type { NetConfig } from "./config";
 
-export const USDC = 1_000_000n; // 1 tUSDC, also 1 YU of notional
+export const USDC = 1_000_000n; // 1 USDC (or tUSDC), also 1 YU of notional
 export const RATE_ONE = 1_000_000_000_000n; // 100 % APR
 export const YEAR_SECS = 31_536_000;
 export const ONE_YOCTO = "1";
@@ -110,13 +110,10 @@ export interface FeedView {
   stale_after_secs: number;
 }
 
-// Fallbacks from docs.near.org/api/rpc/providers (CORS-enabled); rpc.testnet.near.org is deprecated.
-const RPCS = [PUBLIC_RPC, "https://near-testnet.drpc.org", "https://testnet-rpc.intea.rs"];
-
-/** Contract view with failover: a rate limit or network error tries the next RPC. */
-async function view<T>(contractId: string, method: string, args: object = {}): Promise<T> {
+/** Contract view with failover: a rate limit or network error tries the next of the network's RPCs. */
+async function view<T>(rpcs: string[], contractId: string, method: string, args: object = {}): Promise<T> {
   let last: Error = new Error("no rpc");
-  for (const url of RPCS) {
+  for (const url of rpcs) {
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -146,12 +143,12 @@ async function view<T>(contractId: string, method: string, args: object = {}): P
   throw last;
 }
 
-/** Per-wallet reads; shared market data comes from /api/live. */
-export const swap = {
-  account: (account_id: string) => view<AccountView | null>(SWAP_CONTRACT, "get_account", { account_id }),
-  accountTrades: (account_id: string, limit = 40) => view<TradeRecord[]>(SWAP_CONTRACT, "get_account_trades", { account_id, limit }),
-  tokenBalance: (account_id: string) => view<string>(COLLATERAL_TOKEN, "ft_balance_of", { account_id }),
-};
+/** Per-wallet reads on one network; shared market data comes from /api/live. */
+export const swapReads = (c: NetConfig) => ({
+  account: (account_id: string) => view<AccountView | null>(c.rpc, c.swap, "get_account", { account_id }),
+  accountTrades: (account_id: string, limit = 40) => view<TradeRecord[]>(c.rpc, c.swap, "get_account_trades", { account_id, limit }),
+  tokenBalance: (account_id: string) => view<string>(c.rpc, c.collateral, "ft_balance_of", { account_id }),
+});
 
 // ---------------------------------------------------------------- units
 
@@ -173,7 +170,7 @@ export function pctToTick(input: string): number | null {
   return Math.round(Number(s) * 100);
 }
 
-/** Initial margin the contract will require for |size| at `ratePct`, in tUSDC (mirrors math::initial_margin). */
+/** Initial margin the contract will require for |size| at `ratePct`, in USDC (mirrors math::initial_margin). */
 export function initialMargin(m: MarketView, size: bigint, ratePct: number, nowSec: number): number {
   const secsLeft = Math.max(0, m.maturity_ts - nowSec);
   const tau = Math.max(secsLeft, m.params.time_floor_secs) / YEAR_SECS;
@@ -181,7 +178,7 @@ export function initialMargin(m: MarketView, size: bigint, ratePct: number, nowS
   return (m.params.im_factor_bps / 10_000) * toNum(size < 0n ? -size : size) * tau * rate;
 }
 
-/** Taker fee for |size| over the remaining term, in tUSDC. */
+/** Taker fee for |size| over the remaining term, in USDC. */
 export function takerFee(m: MarketView, size: bigint, nowSec: number): number {
   const tau = Math.max(0, m.maturity_ts - nowSec) / YEAR_SECS;
   return toNum(size < 0n ? -size : size) * (rateToPct(m.params.taker_fee_rate) / 100) * tau;

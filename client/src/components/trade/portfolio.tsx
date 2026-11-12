@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { SWAP_CONTRACT } from "@/lib/config";
 import { int, pct, usd } from "@/lib/format";
 import { rateToPct, shortName, tickToPct, TGAS, toNum, type AccountView, type MarketView, type TradeRecord } from "@/lib/swap";
 import { TradeHistory } from "./trades";
 import { useTx } from "./hooks";
+import { useNet } from "./net";
 
 function left(secs: number) {
   if (secs <= 0) return "Matured";
@@ -27,6 +27,7 @@ export function Portfolio({
   onDone: () => void;
 }) {
   const tx = useTx();
+  const c = useNet();
   const [tab, setTab] = useState<"positions" | "orders" | "trades">("positions");
   const byId = new Map(markets.map((m) => [m.id, m]));
   const positions = account?.positions.filter((p) => BigInt(p.n) !== 0n) ?? [];
@@ -35,7 +36,7 @@ export function Portfolio({
   const close = (marketId: number, n: bigint) =>
     tx(`Close ${int(Math.abs(toNum(n)))} YU`, [
       {
-        receiverId: SWAP_CONTRACT,
+        receiverId: c.swap,
         method: "place_order",
         args: { market_id: marketId, side: n > 0n ? "Short" : "Long", size: (n > 0n ? n : -n).toString(), tick: 0, kind: "Market" },
         gas: TGAS(200),
@@ -44,9 +45,9 @@ export function Portfolio({
     ]).then(onDone);
 
   const cancel = (id: string) =>
-    tx(`Cancel order ${id}`, [{ receiverId: SWAP_CONTRACT, method: "cancel_order", args: { order_id: id }, gas: TGAS(50), deposit: "0" }]).then(onDone);
+    tx(`Cancel order ${id}`, [{ receiverId: c.swap, method: "cancel_order", args: { order_id: id }, gas: TGAS(50), deposit: "0" }]).then(onDone);
   const cancelAll = () =>
-    tx("Cancel all orders", [{ receiverId: SWAP_CONTRACT, method: "cancel_all", args: {}, gas: TGAS(150), deposit: "0" }]).then(onDone);
+    tx("Cancel all orders", [{ receiverId: c.swap, method: "cancel_all", args: {}, gas: TGAS(150), deposit: "0" }]).then(onDone);
 
   const th = "label px-4 py-3 text-left text-[0.58rem] font-normal text-white/55";
   const td = "px-4 py-3 text-[0.82rem] tnum";

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { Actions, useNearWallet } from "near-connect-hooks";
 import { explorer } from "@/lib/config";
+import { useNet } from "./net";
 
 /**
  * Re-runs `fn` every `ms` while mounted. Results are tagged with the `deps`
@@ -63,6 +64,7 @@ export interface Toast {
 const ToastCtx = createContext<{ push: (t: Omit<Toast, "id">) => number; update: (id: number, t: Partial<Toast>) => void } | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const net = useNet().id;
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seq = useRef(0);
   const push = useCallback((t: Omit<Toast, "id">) => {
@@ -86,7 +88,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             </div>
             {t.detail && <div className="mt-1 text-xs break-words text-white/60">{t.detail}</div>}
             {t.hashes?.map((h) => (
-              <a key={h} href={explorer.tx(h)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-lime hover:underline">
+              <a key={h} href={explorer(net).tx(h)} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-lime hover:underline">
                 {h.slice(0, 10)}… ↗
               </a>
             ))}

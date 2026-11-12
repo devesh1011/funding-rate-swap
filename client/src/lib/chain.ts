@@ -1,15 +1,10 @@
 import "server-only";
+import { NETS, type Net } from "./config";
 
-// Read-only access to the testnet deployment. Every number on the site
-// comes from these calls; nothing is hard-coded.
+// Read-only access to a deployment (mainnet or testnet). Every number on
+// the site comes from these calls; nothing is hard-coded.
 
-export { explorer, KEEPER_ACCOUNT, NETWORK, ORACLE_ACCOUNT, SWAP_CONTRACT } from "./config";
-import { SWAP_CONTRACT } from "./config";
-
-// Fallbacks from docs.near.org/api/rpc/providers; rpc.testnet.near.org is deprecated and answers every call with an error.
-const RPC = [process.env.NEAR_RPC_URL ?? "https://test.rpc.fastnear.com", "https://near-testnet.drpc.org", "https://testnet-rpc.intea.rs"];
-const ARCHIVAL_RPC = [process.env.NEAR_ARCHIVAL_RPC_URL ?? "https://archival-rpc.testnet.fastnear.com", "https://archival-rpc.testnet.near.org"];
-const NEARBLOCKS_API = "https://api-testnet.nearblocks.io/v3";
+export { explorer, NETS, type Net } from "./config";
 
 /** JSON-RPC with failover: a contract-level error is final, anything else tries the next endpoint. */
 async function rpc<T>(urls: string[], method: string, params: object): Promise<T> {
@@ -34,11 +29,12 @@ async function rpc<T>(urls: string[], method: string, params: object): Promise<T
   throw last;
 }
 
-/** Contract view, at the latest final block or at a past block (archival). */
-export async function view<T>(method: string, args: object = {}, blockId?: number): Promise<T> {
-  const r = await rpc<{ result: number[] }>(blockId ? ARCHIVAL_RPC : RPC, "query", {
+/** View on the network's swap contract, at the latest final block or at a past block (archival). */
+export async function view<T>(net: Net, method: string, args: object = {}, blockId?: number): Promise<T> {
+  const c = NETS[net];
+  const r = await rpc<{ result: number[] }>(blockId ? c.archivalRpc : c.rpc, "query", {
     request_type: "call_function",
-    account_id: SWAP_CONTRACT,
+    account_id: c.swap,
     method_name: method,
     args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
     ...(blockId ? { block_id: blockId } : { finality: "final" }),
@@ -51,8 +47,8 @@ interface BlockHeader {
   timestamp: string; // ns
 }
 
-const header = async (blockId?: number) =>
-  (await rpc<{ header: BlockHeader }>(ARCHIVAL_RPC, "block", blockId ? { block_id: blockId } : { finality: "final" })).header;
+const header = async (net: Net, blockId?: number) =>
+  (await rpc<{ header: BlockHeader }>(NETS[net].archivalRpc, "block", blockId ? { block_id: blockId } : { finality: "final" })).header;
 const secs = (h: BlockHeader) => Number(BigInt(h.timestamp) / 1_000_000n) / 1000;
 
 export interface BlockClock {
@@ -62,9 +58,9 @@ export interface BlockClock {
 }
 
 /** Tip height and the average block time over the last day: maps a timestamp to a height. */
-export async function blockClock(): Promise<BlockClock> {
-  const tip = await header();
-  const old = await header(tip.height - 86_400);
+export async function blockClock(net: Net): Promise<BlockClock> {
+  const tip = await header(net);
+  const old = await header(net, tip.height - 86_400);
   return { height: tip.height, ts: secs(tip), secsPerBlock: (secs(tip) - secs(old)) / 86_400 };
 }
 
@@ -74,8 +70,8 @@ export function heightAt(clock: BlockClock, tsSec: number): number {
 }
 
 /** JSON args of a transaction's first function call. */
-export async function txArgs<T>(hash: string, sender: string): Promise<T> {
-  const r = await rpc<{ transaction: { actions: { FunctionCall?: { args: string } }[] } }>(ARCHIVAL_RPC, "tx", {
+export async function txArgs<T>(net: Net, hash: string, sender: string): Promise<T> {
+  const r = await rpc<{ transaction: { actions: { FunctionCall?: { args: string } }[] } }>(NETS[net].archivalRpc, "tx", {
     tx_hash: hash,
     sender_account_id: sender,
     wait_until: "NONE",
@@ -90,17 +86,18 @@ export interface TxSummary {
 }
 
 /** Latest transactions `signer` sent to the swap contract (NearBlocks v3). */
-export async function recentTxs(signer: string, limit = 10): Promise<TxSummary[]> {
+export async function recentTxs(net: Net, signer: string, limit = 10): Promise<TxSummary[]> {
   // Optional context (links to recent txs): an indexer outage hides them, never the page.
   try {
-    return await fetchRecentTxs(signer, limit);
+    return await fetchRecentTxs(net, signer, limit);
   } catch {
     return [];
   }
 }
 
-async function fetchRecentTxs(signer: string, limit: number): Promise<TxSummary[]> {
-  const res = await fetch(`${NEARBLOCKS_API}/accounts/${SWAP_CONTRACT}/txns?signer=${signer}&limit=${limit}`, {
+async function fetchRecentTxs(net: Net, signer: string, limit: number): Promise<TxSummary[]> {
+  const c = NETS[net];
+  const res = await fetch(`${c.nearblocksApi}/accounts/${c.swap}/txns?signer=${signer}&limit=${limit}`, {
     signal: AbortSignal.timeout(15_000),
   });
   const body = (await res.json()) as {

@@ -35,6 +35,8 @@ How money gets into and out of the swap from any chain, through the [NEAR Intent
 - Stablecoin routes quoted about 0.01 % without an API key, not the extra 0.25 % the docs describe. The client shows each live quote's own numbers.
 - 1Click answers an opaque **HTTP 500** when a NEAR account in the request does not exist. The client validates the account id first, and the signed-in wallet account always exists.
 - 1Click rejects burn addresses (`0x…dEaD`) as `refundTo`.
+- **1Click's NEAR deposit addresses are fresh implicit accounts that aren't registered on the token.** A bare `ft_transfer` to one fails with "is not registered". Send `storage_deposit` (0.00125 NEAR) and `ft_transfer` in the same transaction (`ftTransferRegistering` in `bots/src/lib/near.ts`). Found during the mainnet round trip; see `docs/deployments.md`.
+- Mainnet reserves prepaid gas up front (200 Tgas ≈ 0.2 NEAR), so a lightly funded account should attach only the gas a call needs.
 
 ## Run
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Net } from "@/lib/config";
 import { getMarkets, getRealizedFunding } from "@/lib/data";
 import { hourUtc, int, pct, signedUsd, usd } from "@/lib/format";
 
@@ -49,8 +50,8 @@ function Flow({ out, back }: { out: string; back: string }) {
   );
 }
 
-export async function HowItWorks() {
-  const [markets, realized] = await Promise.all([getMarkets(), getRealizedFunding(8)]);
+export async function HowItWorks({ net }: { net: Net }) {
+  const [markets, realized] = await Promise.all([getMarkets(net), getRealizedFunding(8)]);
   const focus = markets.reduce((a, b) => (b.maturityTs > a.maturityTs ? b : a));
   const rate = focus.implied;
   const perDay = (NOTIONAL * rate) / 100 / 365;

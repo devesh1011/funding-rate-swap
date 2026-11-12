@@ -65,6 +65,7 @@ const Row = ({ icon, label, value }: { icon: ReactNode; label: string; value: st
 );
 
 export async function AnyChain() {
+  // NEAR Intents has no testnet: this section always describes the mainnet deployment.
   const q = await getDepositQuote();
   const ROW_H = 92; // pill pitch in px, used to draw the connectors
   return (

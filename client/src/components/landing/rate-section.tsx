@@ -1,4 +1,5 @@
 import { LineChart, Legend } from "@/components/charts";
+import { NETS, type Net } from "@/lib/config";
 import { getImpliedHistory, getMarkets, getRealizedFunding } from "@/lib/data";
 import { int, pct } from "@/lib/format";
 
@@ -23,10 +24,10 @@ function correlation(pairs: [number, number][]): number {
 
 const show = (x: number, f: (n: number) => string) => (Number.isFinite(x) ? f(x) : "—");
 
-export async function RateSection() {
-  const markets = await getMarkets();
+export async function RateSection({ net }: { net: Net }) {
+  const markets = await getMarkets(net);
   const focus = markets.reduce((a, b) => (b.maturityTs > a.maturityTs ? b : a));
-  const [realized, implied] = await Promise.all([getRealizedFunding(HOURS), getImpliedHistory(focus.id, HOURS)]);
+  const [realized, implied] = await Promise.all([getRealizedFunding(HOURS), getImpliedHistory(net, focus.id, HOURS)]);
   const byTs = new Map(realized.map((p) => [p.ts, p.apr]));
   const pairs = implied.filter((p) => byTs.has(p.ts)).map((p): [number, number] => [p.apr, byTs.get(p.ts)!]);
 
@@ -53,7 +54,7 @@ export async function RateSection() {
           <div className="label mt-8 text-lime">Hourly funding comparison</div>
           <p className="mt-4 max-w-[34ch] text-[0.98rem] leading-8 text-white/90">
             Hyperliquid BTC hourly funding (realized) against the implied APR of Fundswap&apos;s {focus.name.split("·")[1]?.trim()} market, read
-            hour by hour from the contract on testnet.
+            hour by hour from the contract on NEAR {NETS[net].label.toLowerCase()}.
           </p>
         </div>
 

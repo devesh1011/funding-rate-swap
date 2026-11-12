@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/logo";
+import { NetSwitch } from "@/components/net-switch";
+import { NETS, type Net } from "@/lib/config";
 import { getBook, getImpliedHistory, getMarkets, getOracle, getPredictedFunding, getRealizedFunding } from "@/lib/data";
 import { dayMonth, hourUtc, int, pct, signedUsd, usdCompact } from "@/lib/format";
 import { ImpliedVsRealizedCard } from "./implied-card";
@@ -8,7 +10,8 @@ import { ImpliedVsRealizedCard } from "./implied-card";
 /** Notional the settlement card is computed for. */
 const EXAMPLE_YU = 1_000_000;
 
-export function Nav() {
+export function Nav({ net }: { net: Net }) {
+  const trade = `${NETS[net].base}/trade`;
   return (
     <header className="relative z-20 mx-auto flex w-full max-w-[1500px] shrink-0 items-center justify-between px-6 py-[clamp(1rem,3dvh,1.5rem)] lg:px-10">
       <Link href="/" aria-label="Fundswap home">
@@ -24,10 +27,10 @@ export function Nav() {
         <a href="#oracle" className="hover:text-lime">Oracle</a>
       </nav>
       <div className="flex items-center gap-3">
-        <Link href="/trade" className="pill hidden border border-white/40 px-6 py-2.5 text-base hover:border-white sm:inline-flex">
-          Connect wallet
-        </Link>
-        <Link href="/trade" className="pill pill-lime px-6 py-2.5 text-base">
+        <div className="hidden md:block">
+          <NetSwitch net={net} page="home" />
+        </div>
+        <Link href={trade} className="pill pill-lime px-6 py-2.5 text-base">
           Launch app
         </Link>
       </div>
@@ -75,8 +78,8 @@ const IconBars = (
   </svg>
 );
 
-async function OrderBookCard({ marketId, implied }: { marketId: number; implied: number }) {
-  const book = await getBook(marketId);
+async function OrderBookCard({ net, marketId, implied }: { net: Net; marketId: number; implied: number }) {
+  const book = await getBook(net, marketId);
   const asks = book.asks.slice(0, 3).reverse();
   const bids = book.bids.slice(0, 3);
   const Row = ({ apr, size, lime }: { apr: number; size: number; lime?: boolean }) => (
@@ -158,11 +161,11 @@ async function SettlementsCard({ implied }: { implied: number }) {
   );
 }
 
-export async function Hero() {
-  const [markets, oracle, realized] = await Promise.all([getMarkets(), getOracle(), getRealizedFunding(24 * 30)]);
+export async function Hero({ net }: { net: Net }) {
+  const [markets, oracle, realized] = await Promise.all([getMarkets(net), getOracle(net), getRealizedFunding(24 * 30)]);
   const active = markets.filter((m) => m.mode === "Active");
   const focus = (active.length ? active : markets).reduce((a, b) => (b.maturityTs > a.maturityTs ? b : a));
-  const implied = await getImpliedHistory(focus.id);
+  const implied = await getImpliedHistory(net, focus.id);
   const last24 = realized.slice(-24);
   const funding24 = last24.reduce((s, p) => s + p.apr, 0) / Math.max(1, last24.length);
   const oi = markets.reduce((s, m) => s + m.openInterest, 0);
@@ -172,7 +175,7 @@ export async function Hero() {
     // type scales with height too, and the cards run off the bottom edge.
     <section className="relative flex h-dvh min-h-max flex-col overflow-hidden">
       <div className="rays" />
-      <Nav />
+      <Nav net={net} />
       <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[1500px] flex-1 flex-col px-6 lg:px-10">
         <div className="grid shrink-0 grid-cols-1 items-center gap-[clamp(1.25rem,4dvh,2.5rem)] lg:grid-cols-[1fr_auto_1fr] [&>*]:min-w-0">
           <div className="hidden flex-col gap-[clamp(1rem,4.5dvh,2.5rem)] justify-self-start lg:flex">
@@ -191,7 +194,7 @@ export async function Hero() {
               Settled hourly, onchain.
             </p>
             <div className="mt-[clamp(1rem,3dvh,1.5rem)] flex flex-wrap justify-center gap-4">
-              <Link href="/trade" className="pill pill-lime text-lg sm:min-w-56">
+              <Link href={`${NETS[net].base}/trade`} className="pill pill-lime text-lg sm:min-w-56">
                 Start trading
               </Link>
               <a href="#how-it-works" className="pill pill-ghost text-lg sm:min-w-56">
@@ -215,7 +218,7 @@ export async function Hero() {
         <div className="relative mt-[clamp(1.5rem,4dvh,2.5rem)] min-h-0 flex-1">
         <div className="absolute inset-x-0 top-0 grid gap-6 [perspective:1600px] lg:grid-cols-[1fr_1.12fr_1fr] lg:items-start lg:gap-8">
           <div className="glass flex flex-col p-6 lg:min-h-[440px] lg:[transform:rotateY(12deg)_rotateZ(1.5deg)_translateY(1.75rem)]">
-            <OrderBookCard marketId={focus.id} implied={focus.implied} />
+            <OrderBookCard net={net} marketId={focus.id} implied={focus.implied} />
           </div>
           <div className="glass flex flex-col p-6 lg:min-h-[460px]">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">

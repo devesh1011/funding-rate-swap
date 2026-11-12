@@ -6,7 +6,8 @@ import {
   nearUsdc,
   oneClick,
 } from "@fundswap/intents/oneclick";
-import { blockClock, heightAt, KEEPER_ACCOUNT, ORACLE_ACCOUNT, recentTxs, txArgs, view } from "./chain";
+import { blockClock, heightAt, NETS, recentTxs, txArgs, view, type Net } from "./chain";
+import { MAINNET_SWAP_CONTRACT } from "./config";
 
 // ---------------------------------------------------------------- contract
 
@@ -55,10 +56,10 @@ function toMarket(m: RawMarket): Market {
   };
 }
 
-export async function getMarkets(): Promise<Market[]> {
+export async function getMarkets(net: Net): Promise<Market[]> {
   "use cache";
   cacheLife("minutes");
-  return (await view<RawMarket[]>("list_markets")).map(toMarket);
+  return (await view<RawMarket[]>(net, "list_markets")).map(toMarket);
 }
 
 export interface BookLevel {
@@ -66,10 +67,10 @@ export interface BookLevel {
   size: number; // YU
 }
 
-export async function getBook(marketId: number): Promise<{ bids: BookLevel[]; asks: BookLevel[] }> {
+export async function getBook(net: Net, marketId: number): Promise<{ bids: BookLevel[]; asks: BookLevel[] }> {
   "use cache";
   cacheLife("minutes");
-  const b = await view<{ bids: { tick: number; size: string }[]; asks: { tick: number; size: string }[] }>("get_book", {
+  const b = await view<{ bids: { tick: number; size: string }[]; asks: { tick: number; size: string }[] }>(net, "get_book", {
     market_id: marketId,
     depth: 6,
   });
@@ -77,18 +78,18 @@ export async function getBook(marketId: number): Promise<{ bids: BookLevel[]; as
   return { bids: b.bids.map(lv), asks: b.asks.map(lv) };
 }
 
-async function clock() {
+async function clock(net: Net) {
   "use cache";
   cacheLife("minutes");
-  return blockClock();
+  return blockClock(net);
 }
 
 /** Implied APR of every market at the top of one past hour (archival read; immutable, so cached for good). */
-async function impliedAt(hourTs: number): Promise<Record<number, number>> {
+async function impliedAt(net: Net, hourTs: number): Promise<Record<number, number>> {
   "use cache";
   cacheLife("max");
   try {
-    const markets = await view<RawMarket[]>("list_markets", {}, heightAt(await clock(), hourTs));
+    const markets = await view<RawMarket[]>(net, "list_markets", {}, heightAt(await clock(net), hourTs));
     return Object.fromEntries(markets.map((m) => [m.id, toMarket(m).implied]));
   } catch (e) {
     // Before deployment the account or method didn't exist: a permanent, cacheable fact.
@@ -103,13 +104,13 @@ export interface Point {
 }
 
 /** Hourly implied APR of `marketId` from its listing until now. */
-export async function getImpliedHistory(marketId: number, maxHours = 24 * 30): Promise<Point[]> {
+export async function getImpliedHistory(net: Net, marketId: number, maxHours = 24 * 30): Promise<Point[]> {
   "use cache";
   cacheLife("minutes");
   const nowHour = Math.floor(Date.now() / 3_600_000) * 3_600;
   const out: Point[] = [];
   for (let ts = nowHour; ts > nowHour - maxHours * 3_600; ts -= 3_600) {
-    const at = await impliedAt(ts);
+    const at = await impliedAt(net, ts);
     if (at[marketId] === undefined) break; // the market wasn't listed yet
     out.push({ ts, apr: at[marketId] });
   }
@@ -120,14 +121,15 @@ export async function getImpliedHistory(marketId: number, maxHours = 24 * 30): P
  * Oracle config, the feed's last settled interval, and the matching latest
  * submit/liquidate txs, read together so they're from the same moment.
  */
-export async function getOracle() {
+export async function getOracle(net: Net) {
   "use cache";
   cacheLife("minutes");
+  const c = NETS[net];
   const [config, feeds, oracleTxs, keeperTxs] = await Promise.all([
-    view<{ signers: string[]; threshold: number }>("get_config"),
-    view<{ id: number; name: string; last_ts: number; clamp: string }[]>("list_feeds"),
-    recentTxs(ORACLE_ACCOUNT, 5),
-    recentTxs(KEEPER_ACCOUNT, 25),
+    view<{ signers: string[]; threshold: number }>(net, "get_config"),
+    view<{ id: number; name: string; last_ts: number; clamp: string }[]>(net, "list_feeds"),
+    recentTxs(net, c.oracle, 5),
+    c.keeper ? recentTxs(net, c.keeper, 25) : Promise.resolve([]),
   ]);
   const feed = feeds[0];
   const liq = keeperTxs.find((t) => t.method === "liquidate");
@@ -140,7 +142,7 @@ export async function getOracle() {
     clampPerHour: rateToPct(feed.clamp),
     lastSubmit: oracleTxs.find((t) => t.method === "submit_rates") ?? null,
     lastLiquidation: liq
-      ? { ...liq, ...(await txArgs<{ account_id: string; market_id: number }>(liq.hash, KEEPER_ACCOUNT)) }
+      ? { ...liq, ...(await txArgs<{ account_id: string; market_id: number }>(net, liq.hash, c.keeper!)) }
       : null,
   };
 }
@@ -197,9 +199,9 @@ export async function getPredictedFunding(): Promise<number> {
 // ---------------------------------------------------------------- NEAR Intents
 
 /**
- * A live 1Click dry quote: 5 USDC on Arbitrum into margin. The mainnet
- * contract isn't deployed yet, so the quote is priced to a stand-in NEAR
- * account (1Click rejects accounts that don't exist).
+ * A live 1Click dry quote: 5 USDC on Arbitrum delivered into the mainnet
+ * contract's margin with `ft_transfer_call`. No visitor is signed in on the
+ * landing page, so the account it would credit is a stand-in (`near`).
  */
 export async function getDepositQuote() {
   "use cache";
@@ -217,7 +219,7 @@ export async function getDepositQuote() {
         collateral: nearUsdc(tokens),
         amount: 5_000_000n,
         refundTo: "0x1111111111111111111111111111111111111111",
-        swapContract: process.env.MAINNET_SWAP_CONTRACT ?? "intents.near",
+        swapContract: MAINNET_SWAP_CONTRACT,
         trader: "near",
       }),
     );

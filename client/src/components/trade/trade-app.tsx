@@ -5,9 +5,10 @@ import { useMemo, useState, type ReactNode } from "react";
 import { NearProvider, useNearWallet } from "near-connect-hooks";
 import { LogoMark, Wordmark } from "@/components/logo";
 import type { FundingPoint, Point } from "@/lib/data";
-import { explorer, SWAP_CONTRACT } from "@/lib/config";
+import { explorer, NETS, type Net } from "@/lib/config";
 import { hourUtc, pct, usdCompact } from "@/lib/format";
-import { rateToPct, shortName, swap, tickToPct, toNum, type MarketView } from "@/lib/swap";
+import { rateToPct, shortName, swapReads, tickToPct, toNum, type MarketView } from "@/lib/swap";
+import { NetSwitch } from "@/components/net-switch";
 import type { LiveMarket } from "@/app/api/live/route";
 import { OrderBook } from "./book";
 import { ToastProvider, useNow, usePoll } from "./hooks";
@@ -16,6 +17,7 @@ import { Portfolio } from "./portfolio";
 import { RateChart } from "./rate-chart";
 import { OrderTicket } from "./ticket";
 import { MarketTrades } from "./trades";
+import { NetProvider, useNet } from "./net";
 
 export interface TradeInitial {
   /** Server time of the snapshot, ms. */
@@ -25,13 +27,15 @@ export interface TradeInitial {
   implied: Record<number, Point[]>;
 }
 
-export function TradeApp(props: { initial: TradeInitial }) {
+export function TradeApp({ initial, net }: { initial: TradeInitial; net: Net }) {
   return (
-    <NearProvider config={{ network: "testnet" }}>
-      <ToastProvider>
-        <Trade {...props} />
-      </ToastProvider>
-    </NearProvider>
+    <NetProvider value={NETS[net]}>
+      <NearProvider config={{ network: net }}>
+        <ToastProvider>
+          <Trade initial={initial} />
+        </ToastProvider>
+      </NearProvider>
+    </NetProvider>
   );
 }
 
@@ -62,30 +66,32 @@ function maturesIn(ts: number, nowSec: number) {
 
 function Trade({ initial }: { initial: TradeInitial }) {
   const { signedAccountId, signIn, signOut, loading } = useNearWallet();
+  const c = useNet();
+  const swap = useMemo(() => swapReads(c), [c]);
   const [marketId, setMarketId] = useState(() => initial.markets.reduce((a, b) => (b.maturity_ts > a.maturity_ts ? b : a)).id);
   // One shared, server-memoised snapshot of the market (see /api/live).
   const live = usePoll(
     () =>
-      fetch(`/api/live?market=${marketId}`).then(async (r) => {
+      fetch(`/api/live?market=${marketId}&net=${c.id}`).then(async (r) => {
         if (!r.ok) throw new Error(((await r.json()) as { error?: string }).error ?? `live ${r.status}`);
         return (await r.json()) as LiveMarket;
       }),
     3_000,
-    [marketId],
+    [marketId, c.id],
   );
   const markets = live.data?.markets ?? initial.markets;
   const nowSec = Math.floor((live.data?.now ?? initial.now) / 1000);
   const feeds = live.data?.feeds;
   const market = markets.find((m) => m.id === marketId) ?? markets[0];
   const book = { data: live.data?.book, refresh: live.refresh };
-  const account = usePoll(() => (signedAccountId ? swap.account(signedAccountId) : Promise.resolve(null)), 5_000, [signedAccountId]);
+  const account = usePoll(() => (signedAccountId ? swap.account(signedAccountId) : Promise.resolve(null)), 5_000, [signedAccountId, c.id]);
   const wallet = usePoll(
     () => (signedAccountId ? swap.tokenBalance(signedAccountId).then(BigInt) : Promise.resolve(undefined)),
     15_000,
-    [signedAccountId],
+    [signedAccountId, c.id],
   );
   // Ticket rate: the user's input for this market, else the best ask (a long lifts it) or the mark.
-  const myTrades = usePoll(() => (signedAccountId ? swap.accountTrades(signedAccountId) : Promise.resolve(undefined)), 10_000, [signedAccountId]);
+  const myTrades = usePoll(() => (signedAccountId ? swap.accountTrades(signedAccountId) : Promise.resolve(undefined)), 10_000, [signedAccountId, c.id]);
   const clock = useNow();
   const [bookTab, setBookTab] = useState<"book" | "trades">("book");
   const [rateInput, setRateInput] = useState<{ marketId: number; value: string } | null>(null);
@@ -126,7 +132,7 @@ function Trade({ initial }: { initial: TradeInitial }) {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-white/8 bg-ink/85 backdrop-blur">
         <div className="mx-auto flex max-w-[1800px] items-center gap-3 px-4 py-3 sm:gap-6 lg:px-6">
-          <Link href="/" className="flex items-center gap-2.5" aria-label="Fundswap home">
+          <Link href={c.base || "/"} className="flex items-center gap-2.5" aria-label="Fundswap home">
             <LogoMark className="size-7 text-lime" />
             <Wordmark className="hidden text-2xl leading-none sm:inline" />
           </Link>
@@ -142,9 +148,9 @@ function Trade({ initial }: { initial: TradeInitial }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3">
-            <span className="label hidden items-center gap-2 text-[0.6rem] text-lime md:flex">
-              <span className="live-dot size-1.5 rounded-full bg-lime" /> Testnet
-            </span>
+            <div className="hidden md:block">
+              <NetSwitch net={c.id} page="trade" />
+            </div>
             {signedAccountId ? (
               <button onClick={() => signOut()} title="Disconnect" className="pill border border-white/20 px-4 py-2 text-xs hover:border-lime/60">
                 {signedAccountId.length > 22 ? `${signedAccountId.slice(0, 10)}…${signedAccountId.slice(-8)}` : signedAccountId}
@@ -165,8 +171,8 @@ function Trade({ initial }: { initial: TradeInitial }) {
             <h1 className="text-[1.65rem] leading-none font-semibold tracking-tight">
               BTC funding <span className="text-lime">· {shortName(market)}</span>
             </h1>
-            <a href={explorer.account(SWAP_CONTRACT)} target="_blank" rel="noreferrer" className="mt-1 block text-[0.65rem] text-white/45 hover:text-lime">
-              {market.effective_mode === "Active" ? "Active" : market.effective_mode} · Hyperliquid BTC hourly funding · {SWAP_CONTRACT} ↗
+            <a href={explorer(c.id).account(c.swap)} target="_blank" rel="noreferrer" className="mt-1 block text-[0.65rem] text-white/45 hover:text-lime">
+              {market.effective_mode === "Active" ? "Active" : market.effective_mode} · Hyperliquid BTC hourly funding · {c.label} · {c.swap} ↗
             </a>
           </div>
           {strip.map(([label, value]) => (
@@ -226,13 +232,15 @@ function Trade({ initial }: { initial: TradeInitial }) {
                 />
               </div>
             </Panel>
-            <Panel title="Margin" right={<span className="label text-[0.55rem] text-white/40">tUSDC</span>}>
+            <Panel title="Margin" right={<span className="label text-[0.55rem] text-white/40">{c.symbol}</span>}>
               <div className="p-4">
                 {signedAccountId ? (
                   <MarginPanel accountId={signedAccountId} account={account.data} walletBalance={wallet.data} onDone={refreshAll} />
                 ) : (
                   <p className="text-sm leading-6 text-white/55">
-                    Connect a NEAR testnet wallet. You can mint 10,000 test tUSDC here, deposit it as margin, and trade against the live book.
+                    {c.faucet
+                      ? "Connect a NEAR testnet wallet (a .testnet account). You can mint 10,000 test tUSDC here, deposit it as margin, and trade against the live book."
+                      : `Connect a NEAR mainnet wallet. Margin is native USDC on NEAR, capped at ${c.depositCap} USDC per account while in beta. To try it free, switch to Testnet.`}
                   </p>
                 )}
               </div>

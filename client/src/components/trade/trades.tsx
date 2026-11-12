@@ -1,6 +1,7 @@
 "use client";
 
 import { explorer } from "@/lib/config";
+import { useNet } from "./net";
 import { int, pct, timeUtc } from "@/lib/format";
 import { rateToPct, toNum, type TradeRecord } from "@/lib/swap";
 
@@ -38,6 +39,7 @@ export function MarketTrades({ trades }: { trades: TradeRecord[] | undefined }) 
 
 /** The connected account's fills (as taker or maker), newest first. */
 export function TradeHistory({ trades, me, names }: { trades: TradeRecord[] | undefined; me: string; names: Map<number, string> }) {
+  const c = useNet();
   if (!trades?.length) return <div className="px-6 py-10 text-center text-sm text-white/40">No trades yet</div>;
   const th = "label px-4 py-3 text-left text-[0.58rem] font-normal text-white/55";
   const td = "px-4 py-3 text-[0.82rem] tnum";
@@ -66,8 +68,8 @@ export function TradeHistory({ trades, me, names }: { trades: TradeRecord[] | un
               <td className={td}>{pct(rateToPct(t.rate))}</td>
               <td className={`${td} text-white/60`}>{t.liquidation ? (taker ? "Liquidator" : "Liquidated") : taker ? "Taker" : "Maker"}</td>
               <td className={`${td} text-white/60`}>
-                <a href={explorer.account(taker ? t.maker : t.taker)} target="_blank" rel="noreferrer" className="hover:text-lime">
-                  {(taker ? t.maker : t.taker).replace(".testnet", "")}
+                <a href={explorer(c.id).account(taker ? t.maker : t.taker)} target="_blank" rel="noreferrer" className="hover:text-lime">
+                  {(taker ? t.maker : t.taker).replace(/\.(testnet|near)$/, "")}
                 </a>
               </td>
             </tr>

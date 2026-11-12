@@ -3,8 +3,8 @@
 //
 //   pnpm quotes [--amount 5] [--trader alice.near] [--evm 0x…] [--swap <contract>]
 //
-// 1Click answers 500 if a NEAR account in the request does not exist, so the
-// defaults are existing stand-ins until the mainnet contract is deployed.
+// 1Click answers 500 if a NEAR account in the request does not exist; the
+// defaults are the mainnet contract and an existing stand-in trader.
 
 import { parseArgs } from "node:util";
 import {
@@ -21,7 +21,7 @@ const { values: a } = parseArgs({
   options: {
     amount: { type: "string", default: "5" },
     trader: { type: "string", default: "near" },
-    swap: { type: "string", default: process.env.MAINNET_SWAP_CONTRACT ?? "intents.near" },
+    swap: { type: "string", default: process.env.MAINNET_SWAP_CONTRACT ?? "fundswap.near" },
     // Any well-formed address works for a dry quote; 1Click rejects burn addresses.
     evm: { type: "string", default: "0x1111111111111111111111111111111111111111" },
   },

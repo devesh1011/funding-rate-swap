@@ -1,0 +1,26 @@
+[Unit]
+Description=Fundswap %i bot (NEAR mainnet)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fundswap
+Group=fundswap
+WorkingDirectory=/opt/fundswap/bots
+ExecStart=/usr/local/bin/node --env-file=.env.mainnet src/%i/main.ts
+Restart=always
+RestartSec=10
+StandardOutput=append:/opt/fundswap/bots/logs/mainnet-%i.log
+StandardError=append:/opt/fundswap/bots/logs/mainnet-%i.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/fundswap/bots/logs
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

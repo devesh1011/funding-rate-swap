@@ -58,6 +58,31 @@ export async function call<T = unknown>(
   return { hash: outcome.transaction.hash, value };
 }
 
+/**
+ * NEP-141 transfer to an account that may not be registered on the token yet
+ * (e.g. a fresh 1Click deposit address): `storage_deposit` and `ft_transfer`
+ * in one transaction, so the transfer can never hit an unregistered account.
+ */
+export async function ftTransferRegistering(
+  account: Account,
+  token: string,
+  receiverId: string,
+  amount: string,
+  storageYocto = 1_250_000_000_000_000_000_000n,
+): Promise<CallResult<unknown>> {
+  const outcome = await account.signAndSendTransaction({
+    receiverId: token,
+    actions: [
+      actions.functionCall("storage_deposit", { account_id: receiverId, registration_only: true }, teraToGas(10), storageYocto),
+      actions.functionCall("ft_transfer", { receiver_id: receiverId, amount }, teraToGas(20), 1n),
+    ],
+    waitUntil: "EXECUTED_OPTIMISTIC",
+  });
+  const status = outcome.status as { Failure?: unknown };
+  if (status.Failure) throw new Error(`ft_transfer to ${receiverId} failed: ${JSON.stringify(status.Failure).slice(0, 300)}`);
+  return { hash: outcome.transaction.hash, value: undefined };
+}
+
 // ---------- typed views of the rate-swap contract ----------
 
 export type Side = "Long" | "Short";

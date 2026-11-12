@@ -1,18 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { COLLATERAL_TOKEN, SWAP_CONTRACT } from "@/lib/config";
 import { usd } from "@/lib/format";
 import { ONE_YOCTO, parseUsdc, STORAGE_DEPOSIT, TGAS, toNum, type AccountView } from "@/lib/swap";
 import { useToast, useTx, type Call } from "./hooks";
+import { useNet } from "./net";
 
-const activateCall: Call = {
-  receiverId: SWAP_CONTRACT,
+const activateCall = (swap: string): Call => ({
+  receiverId: swap,
   method: "storage_deposit",
   args: {},
   gas: TGAS(30),
   deposit: STORAGE_DEPOSIT,
-};
+});
 
 function Stat({ label, value, lime }: { label: string; value: string; lime?: boolean }) {
   return (
@@ -23,7 +23,7 @@ function Stat({ label, value, lime }: { label: string; value: string; lime?: boo
   );
 }
 
-/** Margin account: health, wallet balance, test faucet, deposit and withdraw. */
+/** Margin account: health, wallet balance, deposit and withdraw (plus the faucet on testnet). */
 export function MarginPanel({
   accountId,
   account,
@@ -36,13 +36,18 @@ export function MarginPanel({
   onDone: () => void;
 }) {
   const tx = useTx();
+  const c = useNet();
   const { push, update } = useToast();
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const h = account?.health;
   const raw = parseUsdc(amount);
-  const max = mode === "deposit" ? (walletBalance ?? 0n) : BigInt(h?.withdrawable ?? "0");
+  // Mainnet caps each account's cash; a deposit past the cap would be refunded, so don't offer it.
+  const capRoom = c.depositCap === null ? null : BigInt(c.depositCap) * 1_000_000n - BigInt(account?.cash ?? "0");
+  const walletMax = walletBalance ?? 0n;
+  const max =
+    mode === "deposit" ? (capRoom === null ? walletMax : capRoom < walletMax ? (capRoom > 0n ? capRoom : 0n) : walletMax) : BigInt(h?.withdrawable ?? "0");
 
   const net = h ? toNum(h.net) : 0;
   const mm = h ? toNum(h.maintenance_margin) : 0;
@@ -65,17 +70,17 @@ export function MarginPanel({
     const calls: Call[] =
       mode === "deposit"
         ? [
-            ...(account?.storage_paid ? [] : [activateCall]),
+            ...(account?.storage_paid ? [] : [activateCall(c.swap)]),
             {
-              receiverId: COLLATERAL_TOKEN,
+              receiverId: c.collateral,
               method: "ft_transfer_call",
-              args: { receiver_id: SWAP_CONTRACT, amount: raw.toString(), msg: "" },
+              args: { receiver_id: c.swap, amount: raw.toString(), msg: "" },
               gas: TGAS(100),
               deposit: ONE_YOCTO,
             },
           ]
-        : [{ receiverId: SWAP_CONTRACT, method: "withdraw", args: { amount: raw.toString() }, gas: TGAS(100), deposit: ONE_YOCTO }];
-    const r = await tx(`${mode === "deposit" ? "Deposit" : "Withdraw"} ${amount} tUSDC`, calls);
+        : [{ receiverId: c.swap, method: "withdraw", args: { amount: raw.toString() }, gas: TGAS(100), deposit: ONE_YOCTO }];
+    const r = await tx(`${mode === "deposit" ? "Deposit" : "Withdraw"} ${amount} ${c.symbol}`, calls);
     setBusy(false);
     if (r.ok) {
       setAmount("");
@@ -104,10 +109,10 @@ export function MarginPanel({
       </div>
 
       <div className="mt-5 flex items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 text-[0.8rem]">
-        <span className="text-white/60">Wallet tUSDC</span>
+        <span className="text-white/60">Wallet {c.symbol}</span>
         <span className="tnum">{walletBalance === undefined ? "—" : usd(toNum(walletBalance))}</span>
       </div>
-      {walletBalance !== undefined && walletBalance < 1_000_000_000n && (
+      {c.faucet && walletBalance !== undefined && walletBalance < 1_000_000_000n && (
         <button disabled={busy} onClick={faucet} className="pill pill-ghost mt-2 w-full py-2.5 text-sm disabled:opacity-40">
           Get 10,000 test tUSDC
         </button>
@@ -139,13 +144,11 @@ export function MarginPanel({
       </button>
       <p className="mt-2 text-[0.65rem] leading-5 text-white/45">
         {mode === "deposit"
-          ? account?.storage_paid
-            ? "ft_transfer_call into the swap contract."
-            : "First deposit also pays the 0.1 NEAR account storage, in the same wallet prompt."
+          ? `${account?.storage_paid ? "ft_transfer_call into the swap contract." : "First deposit also pays the 0.1 NEAR account storage, in the same wallet prompt."}${c.depositCap === null ? "" : ` Deposits are capped at ${c.depositCap} ${c.symbol} per account while in beta.`}`
           : "Up to your free margin. Needs your full-access key (1 yoctoNEAR)."}
       </p>
       {account && !account.storage_paid && (
-        <button disabled={busy} onClick={() => tx("Activate account", [activateCall]).then(onDone)} className="mt-2 text-xs text-lime hover:underline">
+        <button disabled={busy} onClick={() => tx("Activate account", [activateCall(c.swap)]).then(onDone)} className="mt-2 text-xs text-lime hover:underline">
           Activate account only (0.1 NEAR) →
         </button>
       )}

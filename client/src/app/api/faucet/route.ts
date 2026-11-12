@@ -3,7 +3,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { Account, JsonRpcProvider, actions, teraToGas, type KeyPairString } from "near-api-js";
 import { isNearAccountId } from "@fundswap/intents/oneclick";
-import { COLLATERAL_TOKEN } from "@/lib/config";
+import { NETS } from "@/lib/config";
+
+// Testnet only: mainnet collateral is real USDC.
+const COLLATERAL_TOKEN = NETS.testnet.collateral;
 
 // Testnet faucet: the token treasury registers the caller's wallet on tUSDC
 // and sends it FAUCET_USDC. Real testnet transactions; the treasury key never

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { explorer, SWAP_CONTRACT } from "@/lib/chain";
+import { explorer, NETS, type Net } from "@/lib/chain";
 import { getOracle, getRealizedFunding } from "@/lib/data";
 import { hourUtc, shortHash, timeUtc } from "@/lib/format";
 
@@ -22,8 +22,9 @@ function Card({ n, title, children }: { n: string; title: string; children: Reac
   );
 }
 
-export async function Trust() {
-  const [oracle, realized] = await Promise.all([getOracle(), getRealizedFunding(48)]);
+export async function Trust({ net }: { net: Net }) {
+  const [oracle, realized] = await Promise.all([getOracle(net), getRealizedFunding(48)]);
+  const ex = explorer(net);
   const lastRate = realized.find((p) => p.ts === oracle.lastIntervalTs);
   const liq = oracle.lastLiquidation;
 
@@ -35,7 +36,7 @@ export async function Trust() {
           Verifiable, <span className="accent text-lime">not</span> trusted.
         </h2>
         <p className="mx-auto mt-6 max-w-[70ch] text-center text-sm leading-7 text-white/70">
-          The contract enforces quorum, order, the cap and no rewrites. In this testnet build our team runs all three signers, and every
+          The contract enforces quorum, order, the cap and no rewrites. Today our team runs all three signers, and every
           rate can be recomputed from Hyperliquid&apos;s public funding history.
         </p>
         <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -57,7 +58,7 @@ export async function Trust() {
             </div>
             {oracle.lastSubmit && (
               <a
-                href={explorer.tx(oracle.lastSubmit.hash)}
+                href={ex.tx(oracle.lastSubmit.hash)}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-auto flex items-center justify-center gap-4 rounded-lg border border-white/15 py-4 text-lg tracking-[0.06em] text-lime hover:border-lime/50"
@@ -81,7 +82,7 @@ export async function Trust() {
             </div>
             {liq && (
               <a
-                href={explorer.tx(liq.hash)}
+                href={ex.tx(liq.hash)}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-auto block rounded-lg border border-lime/30 px-3 py-3 text-[0.68rem] leading-5 text-lime hover:border-lime/60"
@@ -92,11 +93,11 @@ export async function Trust() {
           </Card>
         </div>
         <div className="mt-14 flex flex-wrap justify-center gap-6">
-          <a href={explorer.account(SWAP_CONTRACT)} target="_blank" rel="noreferrer" className="pill pill-lime min-w-72 py-4 tracking-[0.1em]">
+          <a href={ex.account(NETS[net].swap)} target="_blank" rel="noreferrer" className="pill pill-lime min-w-72 py-4 tracking-[0.1em]">
             CONTRACT <span>↗</span>
           </a>
           {liq && (
-            <a href={explorer.tx(liq.hash)} target="_blank" rel="noreferrer" className="pill pill-ghost min-w-72 py-4 tracking-[0.1em] text-lime">
+            <a href={ex.tx(liq.hash)} target="_blank" rel="noreferrer" className="pill pill-ghost min-w-72 py-4 tracking-[0.1em] text-lime">
               LIQUIDATION DEMO <span>↗</span>
             </a>
           )}

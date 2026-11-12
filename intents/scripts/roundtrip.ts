@@ -14,7 +14,7 @@
 
 import { parseArgs } from "node:util";
 import { config } from "@fundswap/bots/config";
-import { call, loadAccount, swap, view } from "@fundswap/bots/near";
+import { call, ftTransferRegistering, loadAccount, swap, view } from "@fundswap/bots/near";
 import { aprToTick, formatUsdc } from "@fundswap/bots/units";
 import {
   depositToSwapQuote,
@@ -98,8 +98,9 @@ if (!live) {
 /** ft_transfer to a 1Click deposit address, notify 1Click, wait for a terminal status. */
 async function sendToOneClick(q: QuoteResponse): Promise<StatusResponse> {
   const depositAddress = q.quote.depositAddress ?? fail("quote has no deposit address");
-  const t = await call(trader, config.collateral, "ft_transfer", { receiver_id: depositAddress, amount: q.quote.amountIn }, { depositYocto: 1n, gasTera: 50 });
-  step("ft_transfer to 1Click deposit address", { tx: config.explorer(t.hash) });
+  // 1Click's NEAR deposit addresses are fresh implicit accounts, not yet registered on the token.
+  const t = await ftTransferRegistering(trader, config.collateral, depositAddress, q.quote.amountIn);
+  step("storage_deposit + ft_transfer to 1Click deposit address", { tx: config.explorer(t.hash) });
   await api.submitDeposit({ txHash: t.hash, depositAddress, nearSenderAccount: trader.accountId }).catch(() => {});
   const s = await api.waitFor(depositAddress, { onChange: (x) => console.log(`  1Click status ${x.status}`) });
   step(`1Click ${s.status}`, s.swapDetails);
@@ -131,7 +132,7 @@ const tick = aprToTick(BigInt(market.mark)) - 200; // 2 % APR under mark: rests,
 const placed = await call<{ filled: string; order_id: string | null }>(
   trader, config.swap, "place_order",
   { market_id: market.id, side: "Long", size: ORDER_SIZE.toString(), tick, kind: "Limit" },
-  { gasTera: 200 },
+  { gasTera: 50 }, // mainnet reserves prepaid gas up front; a resting order needs little
 );
 step(`place_order Long 50 YU @ tick ${tick} on ${market.name}`, { tx: config.explorer(placed.hash), result: placed.value });
 if (placed.value?.filled !== "0") fail("order filled; a position is open, so withdraw manually after closing it");

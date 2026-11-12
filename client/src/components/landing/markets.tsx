@@ -1,3 +1,4 @@
+import { NETS, type Net } from "@/lib/config";
 import { getImpliedHistory, getMarkets, type Mode } from "@/lib/data";
 import { date, pct, signedPct, usdCompact } from "@/lib/format";
 
@@ -8,9 +9,10 @@ const MODE_STYLE: Record<Mode, string> = {
 };
 const MODE_LABEL: Record<Mode, string> = { Active: "Active", CloseOnly: "Close only", Paused: "Paused" };
 
-export async function Markets() {
-  const markets = (await getMarkets()).sort((a, b) => a.maturityTs - b.maturityTs);
-  const histories = await Promise.all(markets.map((m) => getImpliedHistory(m.id, 25)));
+export async function Markets({ net }: { net: Net }) {
+  const c = NETS[net];
+  const markets = (await getMarkets(net)).sort((a, b) => a.maturityTs - b.maturityTs);
+  const histories = await Promise.all(markets.map((m) => getImpliedHistory(net, m.id, 25)));
   const rows = markets.map((m, i) => {
     const h = histories[i];
     const dayAgo = h.length >= 25 ? h[0].apr : null;
@@ -64,7 +66,7 @@ export async function Markets() {
           <div className="pointer-events-none absolute inset-x-[8%] -bottom-px h-px bg-lime shadow-[0_0_30px_6px_rgb(198_244_50/0.45)]" />
         </div>
         <p className="mt-6 text-xs text-white/50">
-          NEAR testnet · collateral tUSDC · implied = book mid (mark when one side is empty) · 24h change appears once a market is a day old.
+          NEAR {c.label.toLowerCase()} · {c.swap} · collateral {c.symbol} · implied = book mid (mark when one side is empty) · 24h change appears once a market is a day old.
         </p>
       </div>
     </section>

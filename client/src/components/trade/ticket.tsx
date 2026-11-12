@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SWAP_CONTRACT } from "@/lib/config";
 import { pct, usd } from "@/lib/format";
 import {
   estimateFill,
@@ -20,6 +19,7 @@ import {
   type Side,
 } from "@/lib/swap";
 import { useTx } from "./hooks";
+import { useNet } from "./net";
 
 const KINDS: { kind: Kind; label: string; hint: string }[] = [
   { kind: "Limit", label: "Limit", hint: "Fills what crosses, rests the rest" },
@@ -52,9 +52,12 @@ export function OrderTicket({
   onDone: () => void;
 }) {
   const tx = useTx();
+  const c = useNet();
   const [side, setSide] = useState<Side>("Long");
   const [kind, setKind] = useState<Kind>("Limit");
-  const [size, setSize] = useState("10000");
+  // Sizes that fit the network: with mainnet's 10 USDC deposit cap, ~1,000 YU is the most margin allows.
+  const sizes = c.depositCap === null ? ["1000", "10000", "50000", "100000"] : ["100", "250", "500", "1000"];
+  const [size, setSize] = useState(sizes[1]);
   const [busy, setBusy] = useState(false);
 
   const sizeRaw = parseUsdc(size);
@@ -98,7 +101,7 @@ export function OrderTicket({
       `${side === "Long" ? "Long" : "Short"} ${size} YU ${kind === "Market" ? "at market" : `@ ${pct(ratePct)}`}`,
       [
         {
-          receiverId: SWAP_CONTRACT,
+          receiverId: c.swap,
           method: "place_order",
           args: { market_id: market.id, side, size: sizeRaw.toString(), tick: tick ?? 0, kind },
           gas: TGAS(200),
@@ -177,7 +180,7 @@ export function OrderTicket({
         </div>
       </label>
       <div className="mt-2 flex gap-2 text-[0.68rem]">
-        {["1000", "10000", "50000", "100000"].map((v) => (
+        {sizes.map((v) => (
           <button key={v} onClick={() => setSize(v)} className="rounded-md border border-white/10 px-2 py-1 text-white/70 hover:border-lime/50 hover:text-lime">
             {Number(v) >= 1000 ? `${Number(v) / 1000}k` : v}
           </button>
