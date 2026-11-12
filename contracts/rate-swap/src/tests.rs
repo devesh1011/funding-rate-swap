@@ -606,3 +606,86 @@ fn insurance_covers_bad_debt_of_a_flat_account() {
     assert_eq!(e.c.cover_bad_debt(id("alice.testnet")).0, 0);
     e.assert_solvent();
 }
+
+// ---------------------------------------------------------------- trade log
+
+#[test]
+fn trades_are_logged_for_market_and_both_accounts() {
+    let mut e = Env::new();
+    e.fund("alice.testnet", 1_000);
+    e.fund("bob.testnet", 1_000);
+    trade_pair(&mut e, 10_000);
+
+    let t = e.c.get_trades(0, None);
+    assert_eq!(t.len(), 1);
+    assert_eq!(t[0].taker, id("bob.testnet"));
+    assert_eq!(t[0].maker, id("alice.testnet"));
+    assert_eq!(t[0].taker_side, Side::Long);
+    assert_eq!(t[0].size.0, (10_000 * USDC) as u128);
+    assert_eq!(t[0].rate.0, pct(10.0));
+    assert!(!t[0].liquidation);
+    assert_eq!(e.c.get_account_trades(id("alice.testnet"), None), t);
+    assert_eq!(e.c.get_account_trades(id("bob.testnet"), None), t);
+    assert!(e.c.get_account_trades(id("carol.testnet"), None).is_empty());
+    assert_eq!(e.c.get_market(0).unwrap().volume_24h.0, (10_000 * USDC) as u128);
+}
+
+#[test]
+fn candles_track_ohlc_and_volume_per_hour() {
+    let mut e = Env::new();
+    e.fund("alice.testnet", 5_000);
+    e.fund("bob.testnet", 5_000);
+    e.as_("alice.testnet");
+    for tick in [1_000, 1_020, 990] {
+        e.c.place_order(0, Side::Short, U128((1_000 * USDC) as u128), tick, OrderKind::Limit);
+    }
+    // One sweep of three asks: fills 9.90 %, then 10.00 %, then 10.20 %.
+    e.as_("bob.testnet");
+    e.c.place_order(0, Side::Long, U128((3_000 * USDC) as u128), 1_020, OrderKind::Ioc);
+    // A later hour.
+    e.now += HOUR;
+    e.as_("alice.testnet");
+    e.c.place_order(0, Side::Short, U128((500 * USDC) as u128), 1_005, OrderKind::Limit);
+    e.as_("bob.testnet");
+    e.c.place_order(0, Side::Long, U128((500 * USDC) as u128), 1_005, OrderKind::Ioc);
+
+    let c = e.c.get_candles(0, U64(T0), None);
+    assert_eq!(c.len(), 2);
+    assert_eq!((c[0].open.0, c[0].high.0, c[0].low.0, c[0].close.0), (pct(9.9), pct(10.2), pct(9.9), pct(10.2)));
+    assert_eq!((c[0].volume.0, c[0].trades), ((3_000 * USDC) as u128, 3));
+    assert_eq!(c[1].hour_ts, c[0].hour_ts + HOUR);
+    assert_eq!((c[1].open.0, c[1].close.0, c[1].trades), (pct(10.05), pct(10.05), 1));
+    assert_eq!(e.c.get_market(0).unwrap().volume_24h.0, (3_500 * USDC) as u128);
+    // Newest first.
+    assert_eq!(e.c.get_trades(0, Some(1))[0].rate.0, pct(10.05));
+    // A range longer than the cap keeps the newest hours, not the oldest.
+    assert_eq!(e.c.get_candles(0, U64(0), None).len(), 2);
+}
+
+#[test]
+fn market_trade_ring_keeps_the_newest() {
+    let mut e = Env::new();
+    e.fund("alice.testnet", 50_000);
+    e.fund("bob.testnet", 50_000);
+    for _ in 0..(trade_log::MARKET_TRADES + 5) {
+        trade_pair(&mut e, 10);
+    }
+    assert_eq!(e.c.get_trades(0, Some(1_000)).len(), trade_log::MARKET_TRADES);
+    assert_eq!(e.c.get_account_trades(id("bob.testnet"), Some(1_000)).len(), trade_log::ACCOUNT_TRADES);
+}
+
+#[test]
+fn liquidations_are_logged() {
+    let mut e = Env::new();
+    e.fund("alice.testnet", 5_000);
+    e.fund("bob.testnet", 90);
+    e.fund("carol.testnet", 5_000);
+    trade_pair(&mut e, 100_000);
+    e.next_rate(pct(-0.05));
+    e.as_("carol.testnet");
+    e.c.liquidate(id("bob.testnet"), 0);
+    let t = &e.c.get_account_trades(id("bob.testnet"), Some(1))[0];
+    assert!(t.liquidation);
+    assert_eq!((t.taker.clone(), t.maker.clone(), t.taker_side), (id("carol.testnet"), id("bob.testnet"), Side::Long));
+    assert_eq!(t.size.0, (100_000 * USDC) as u128);
+}

@@ -3,18 +3,13 @@ import "server-only";
 // Read-only access to the testnet deployment. Every number on the site
 // comes from these calls; nothing is hard-coded.
 
-export const NETWORK = "testnet";
-export const SWAP_CONTRACT = process.env.NEXT_PUBLIC_SWAP_CONTRACT ?? "fundswap-lab.testnet";
-export const ORACLE_ACCOUNT = "oracle.fundswap-treasury.testnet";
-export const KEEPER_ACCOUNT = "keeper.fundswap-treasury.testnet";
-const RPC = [process.env.NEAR_RPC_URL ?? "https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"];
+export { explorer, KEEPER_ACCOUNT, NETWORK, ORACLE_ACCOUNT, SWAP_CONTRACT } from "./config";
+import { SWAP_CONTRACT } from "./config";
+
+// Fallbacks from docs.near.org/api/rpc/providers; rpc.testnet.near.org is deprecated and answers every call with an error.
+const RPC = [process.env.NEAR_RPC_URL ?? "https://test.rpc.fastnear.com", "https://near-testnet.drpc.org", "https://testnet-rpc.intea.rs"];
 const ARCHIVAL_RPC = [process.env.NEAR_ARCHIVAL_RPC_URL ?? "https://archival-rpc.testnet.fastnear.com", "https://archival-rpc.testnet.near.org"];
 const NEARBLOCKS_API = "https://api-testnet.nearblocks.io/v3";
-
-export const explorer = {
-  tx: (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`,
-  account: (id: string) => `https://testnet.nearblocks.io/address/${id}`,
-};
 
 /** JSON-RPC with failover: a contract-level error is final, anything else tries the next endpoint. */
 async function rpc<T>(urls: string[], method: string, params: object): Promise<T> {

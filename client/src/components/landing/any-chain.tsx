@@ -60,7 +60,7 @@ const Row = ({ icon, label, value }: { icon: ReactNode; label: string; value: st
   <div className="flex items-center gap-4 border-t border-white/10 py-4">
     <span className="grid size-9 place-items-center rounded-full border border-lime text-lime">{icon}</span>
     <span className="label flex-1 text-[0.8rem]">{label}</span>
-    <span className="font-mono text-base tnum">{value}</span>
+    <span className="text-base tnum">{value}</span>
   </div>
 );
 
@@ -72,12 +72,12 @@ export async function AnyChain() {
       <div className="rays rays-fade" />
       <div className="relative mx-auto grid max-w-[1500px] items-center gap-16 px-6 lg:grid-cols-[1fr_1.25fr] lg:px-10">
         <div>
-          <h2 className="font-serif text-[clamp(3.6rem,7vw,7.5rem)] leading-[0.95]">
+          <h2 className="font-normal tracking-[-0.045em] text-[clamp(3rem,5.5vw,6rem)] leading-[0.95]">
             Margin from
             <br />
-            <em className="text-lime">any</em> chain.
+            <span className="accent text-lime">any</span> chain.
           </h2>
-          <p className="mt-8 font-mono text-lg leading-9 tracking-[0.14em]">
+          <p className="mt-8 text-xl leading-9 text-white/85">
             One-step deposits via NEAR Intents.
             <br />
             No bridging tabs.
@@ -89,7 +89,7 @@ export async function AnyChain() {
             {CHAINS.map((c) => (
               <div key={c.name} className="flex h-[68px] items-center gap-5 rounded-full border border-lime/30 bg-white/[0.03] pr-12 pl-4">
                 {c.icon}
-                <span className="label text-base tracking-[0.3em]">{c.name}</span>
+                <span className="label text-base tracking-[0.1em]">{c.name}</span>
               </div>
             ))}
           </div>
@@ -113,11 +113,11 @@ export async function AnyChain() {
           </svg>
           <div className="glass p-7">
             <div className="text-center">
-              <div className="font-mono text-lg">
+              <div className="text-lg">
                 From <span className="text-2xl">{q.amountIn.toFixed(2)} USDC</span> <span className="text-white/70">· {q.from}</span>
               </div>
               <div className="my-1 text-lime">↓</div>
-              <div className="font-serif text-4xl">
+              <div className="text-3xl font-semibold tracking-tight whitespace-nowrap">
                 Margin <span className="text-lime tnum">+{q.amountOut.toFixed(4)} USDC</span>
               </div>
             </div>
@@ -126,10 +126,10 @@ export async function AnyChain() {
               <Row icon={<span className="text-sm">◷</span>} label="ETA" value={`~${q.etaSecs}s`} />
               <Row icon={<span className="text-sm">%</span>} label="Fee" value={`${q.feePct.toFixed(2)}%`} />
             </div>
-            <Link href="/trade" className="pill pill-lime mt-4 w-full py-4 font-mono tracking-[0.3em]">
+            <Link href="/trade" className="pill pill-lime mt-4 w-full py-4 tracking-[0.1em]">
               DEPOSIT
             </Link>
-            <p className="mt-4 text-center font-mono text-[0.65rem] text-white/50">Live 1Click quote · refreshed every minute</p>
+            <p className="mt-4 text-center text-[0.65rem] text-white/50">Live 1Click quote · refreshed every minute</p>
           </div>
         </div>
       </div>

@@ -14,15 +14,15 @@ import { log, loop } from "../lib/log.ts";
 import { call, loadAccount, swap, type MarketView, type OrderView, type Side } from "../lib/near.ts";
 import { USDC, aprToTick, formatPct, hourlyToApr, tickToApr } from "../lib/units.ts";
 
-const SPREAD_TICKS = config.num("MAKER_SPREAD_BPS", 50);
-const SIZE = BigInt(config.num("MAKER_SIZE_USDC", 25_000)) * USDC;
+const SPREAD_TICKS = config.num("MAKER_SPREAD_BPS", 15);
+const SIZE = BigInt(config.num("MAKER_SIZE_USDC", 10_000)) * USDC;
 const MAX_INV = BigInt(config.num("MAKER_MAX_INVENTORY_USDC", 100_000)) * USDC;
-const REQUOTE_TICKS = config.num("MAKER_REQUOTE_BPS", 25);
-const LEVELS = config.num("MAKER_LEVELS", 3);
-const LEVEL_STEP = config.num("MAKER_LEVEL_STEP_BPS", 25);
+const REQUOTE_TICKS = config.num("MAKER_REQUOTE_BPS", 10);
+const LEVELS = config.num("MAKER_LEVELS", 7);
+const LEVEL_STEP = config.num("MAKER_LEVEL_STEP_BPS", 10);
 const FAIR_HOURS = config.num("MAKER_FAIR_HOURS", 24 * 7);
 
-/** Level i (0 = inside) quotes 1×, 1.5×, 2× … the base size. */
+/** Level i (0 = inside) quotes 1×, 1.5×, 2× … the base size. 7 levels × 2 sides × 2 markets stays under the contract's 32 open orders per account. */
 const sizeAt = (level: number) => (SIZE * BigInt(2 + level)) / 2n;
 
 interface Want {

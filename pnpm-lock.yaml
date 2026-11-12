@@ -26,6 +26,15 @@ importers:
       '@fundswap/intents':
         specifier: workspace:*
         version: link:../intents
+      '@hot-labs/near-connect':
+        specifier: 0.11.4
+        version: 0.11.4
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
+      near-connect-hooks:
+        specifier: 1.1.6
+        version: 1.1.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next:
         specifier: 16.4.6
         version: 16.4.6(@babel/core@7.29.13(supports-color@7.2.0))(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -196,6 +205,9 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@hot-labs/near-connect@0.11.4':
+    resolution: {integrity: sha512-exAL1gqysyCHewcMO334YJ3ddTPg3j9EyVM9novz5Jx4fLbG/YSYBlkYMjMNB8E9K/4I7BiemjOw9bQ+h80hEA==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1364,6 +1376,12 @@ packages:
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
 
+  function-call-key-plugin@1.0.4:
+    resolution: {integrity: sha512-vDdt62Va2m3YanJFByhycX4vsmPZ5V2CHri+9hs7vae+YTvvvmYKx1r0E6yIn3SvvBkxbfvckSCNyFsXfonxhw==}
+    peerDependencies:
+      '@hot-labs/near-connect': ^0.11.1
+      react: '>=16.8.0'
+
   function.prototype.name@1.2.0:
     resolution: {integrity: sha512-jObKIik1P2QjPHP5nz5BaOtUlfgS0fWo8IUByNXkM+o+02sJOi94em77GwJKQSJ3gfPHdgzLNrHc1uokV4P/ew==}
     engines: {node: '>= 0.4'}
@@ -1807,6 +1825,12 @@ packages:
   near-api-js@7.4.0:
     resolution: {integrity: sha512-n5BDLKC8zEkSZpvDkcMifiJKTZBCR54lVL4qAP4WfP98raRb339YxncRV2kL+h3eDDqA/nVBDCTH8iNvzH5PfA==}
     engines: {node: '>=22.22.2', pnpm: '>=10.4.1'}
+
+  near-connect-hooks@1.1.6:
+    resolution: {integrity: sha512-ituEe6SHtJq436nTmef4FPjj5UOjfpCfEm3+3uaPkKAU5+L/nfMJan3VZlXnpwIHhwpW6VNXsYoubc1EKlkf4g==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   near-hd-key@1.2.1:
     resolution: {integrity: sha512-SIrthcL5Wc0sps+2e1xGj3zceEa68TgNZDLuCx0daxmfTP7sFTB3/mtE2pYhlFsCxWoMn+JfID5E1NlzvvbRJg==}
@@ -2444,6 +2468,8 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
+
+  '@hot-labs/near-connect@0.11.4': {}
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -3617,6 +3643,12 @@ snapshots:
 
   function-bind@1.1.2: {}
 
+  function-call-key-plugin@1.0.4(@hot-labs/near-connect@0.11.4)(react@19.3.0):
+    dependencies:
+      '@hot-labs/near-connect': 0.11.4
+      near-api-js: 7.4.0
+      react: 19.3.0
+
   function.prototype.name@1.2.0:
     dependencies:
       call-bind: 1.0.9
@@ -4044,6 +4076,14 @@ snapshots:
       borsh: 2.0.0
       is-my-json-valid: 2.20.6
       near-seed-phrase: 0.2.1
+
+  near-connect-hooks@1.1.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+    dependencies:
+      '@hot-labs/near-connect': 0.11.4
+      function-call-key-plugin: 1.0.4(@hot-labs/near-connect@0.11.4)(react@19.3.0)
+      near-api-js: 7.4.0
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
 
   near-hd-key@1.2.1:
     dependencies:

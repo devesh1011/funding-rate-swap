@@ -84,18 +84,18 @@ export function LineChart({
         {y.ticks.map((v) => (
           <g key={v}>
             <line x1={pad.l} x2={width - pad.r} y1={Y(v)} y2={Y(v)} stroke="white" strokeOpacity={v === 0 ? 0.22 : 0.07} strokeDasharray={v === 0 ? undefined : "3 4"} />
-            <text x={pad.l - 8} y={Y(v) + 3.5} textAnchor="end" className="fill-white/70 font-mono text-[10px]">
+            <text x={pad.l - 8} y={Y(v) + 3.5} textAnchor="end" className="fill-white/70 text-[10px]">
               {pct(v, 0)}
             </text>
             {rightAxis && (
-              <text x={width - pad.r + 8} y={Y(v) + 3.5} className="fill-white/70 font-mono text-[10px]">
+              <text x={width - pad.r + 8} y={Y(v) + 3.5} className="fill-white/70 text-[10px]">
                 {pct(v, 0)}
               </text>
             )}
           </g>
         ))}
         {xLabels.map((ts, i) => (
-          <text key={i} x={X(ts)} y={height - 8} textAnchor={i === 0 ? "start" : i === xTicks - 1 ? "end" : "middle"} className="fill-white/70 font-mono text-[10px]">
+          <text key={i} x={X(ts)} y={height - 8} textAnchor={i === 0 ? "start" : i === xTicks - 1 ? "end" : "middle"} className="fill-white/70 text-[10px]">
             {fmt === "day" ? monthDay(ts) : hourUtc(ts)}
           </text>
         ))}
@@ -134,10 +134,10 @@ export function LineChart({
       </svg>
       {hoverTs !== null && (
         <div
-          className="glass-quiet pointer-events-none absolute top-2 z-10 min-w-44 bg-ink/90 px-3 py-2 font-mono text-[11px]"
+          className="glass-quiet pointer-events-none absolute top-2 z-10 min-w-44 bg-ink/90 px-3 py-2 text-[11px]"
           style={X(hoverTs) > width / 2 ? { right: `${((width - X(hoverTs)) / width) * 100 + 2}%` } : { left: `${(X(hoverTs) / width) * 100 + 2}%` }}
         >
-          <div className="mb-1 tracking-[0.15em] text-lime">
+          <div className="mb-1 tracking-[0.06em] text-lime">
             {monthDay(hoverTs)} · {hourUtc(Math.floor(hoverTs / 3_600) * 3_600)} UTC
           </div>
           {series.map((s) => {

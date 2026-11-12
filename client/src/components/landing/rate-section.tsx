@@ -44,14 +44,14 @@ export async function RateSection() {
       <div className="rays rays-fade rays-soft !inset-x-auto !left-0 !w-1/2" />
       <div className="relative mx-auto grid max-w-[1500px] gap-12 px-6 lg:grid-cols-[0.42fr_1fr] lg:px-10">
         <div className="lg:pt-16">
-          <h2 className="font-serif text-[clamp(3.2rem,5.6vw,6rem)] leading-[0.95]">
+          <h2 className="font-normal tracking-[-0.045em] text-[clamp(2.75rem,4.4vw,4.75rem)] leading-[0.95]">
             The rate is
             <br />
-            the <em className="text-lime">product.</em>
+            the <span className="accent text-lime">product.</span>
           </h2>
           <div className="mt-10 h-px w-14 bg-lime" />
           <div className="label mt-8 text-lime">Hourly funding comparison</div>
-          <p className="mt-4 max-w-[34ch] font-mono text-[0.98rem] leading-8 text-white/90">
+          <p className="mt-4 max-w-[34ch] text-[0.98rem] leading-8 text-white/90">
             Hyperliquid BTC hourly funding (realized) against the implied APR of Fundswap&apos;s {focus.name.split("·")[1]?.trim()} market, read
             hour by hour from the contract on testnet.
           </p>
@@ -60,9 +60,9 @@ export async function RateSection() {
         <div className="glass p-6 lg:p-8">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="flex gap-3">
-              <span className="rounded-xl bg-lime px-6 py-2.5 font-mono text-sm tracking-[0.2em] text-ink">BTC</span>
+              <span className="rounded-xl bg-lime px-6 py-2.5 text-sm tracking-[0.1em] text-ink">BTC</span>
               {["ETH", "SOL"].map((c) => (
-                <span key={c} title="Not listed yet" className="rounded-xl border border-white/15 px-6 py-2.5 font-mono text-sm tracking-[0.2em] text-white/35">
+                <span key={c} title="Not listed yet" className="rounded-xl border border-white/15 px-6 py-2.5 text-sm tracking-[0.1em] text-white/35">
                   {c}
                 </span>
               ))}
@@ -94,12 +94,12 @@ export async function RateSection() {
             {stats.map(([label, value, lime]) => (
               <div key={label} className="px-4 py-5 text-center">
                 <div className="label text-[0.58rem] text-white/80">{label}</div>
-                <div className={`mt-3 font-mono text-2xl tnum ${lime ? "text-lime" : ""}`}>{value}</div>
+                <div className={`mt-3 text-2xl tnum ${lime ? "text-lime" : ""}`}>{value}</div>
               </div>
             ))}
           </div>
           {implied.length < HOURS && implied[0] && (
-            <p className="mt-4 font-mono text-[0.7rem] text-white/50">
+            <p className="mt-4 text-[0.7rem] text-white/50">
               Implied history starts {new Date(implied[0].ts * 1000).toUTCString().slice(5, 22)} UTC, when the market opened.
             </p>
           )}

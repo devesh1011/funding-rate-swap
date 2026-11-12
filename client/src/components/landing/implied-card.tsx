@@ -12,7 +12,10 @@ export function ImpliedVsRealizedCard({
   implied,
   impliedNow,
   realized,
+  chartWidth = 460,
 }: {
+  /** viewBox width: match the rendered width so axis text stays ~10px. */
+  chartWidth?: number;
   implied: Point[];
   impliedNow: number;
   realized: FundingPoint[];
@@ -27,11 +30,11 @@ export function ImpliedVsRealizedCard({
       <div className="mt-4 flex items-start justify-between">
         <div>
           <div className="label text-[0.62rem] text-white/80">Implied APR</div>
-          <div className="mt-1 font-serif text-4xl text-lime tnum">{pct(impliedNow)}</div>
+          <div className="mt-1 font-semibold tracking-tight text-4xl text-lime tnum">{pct(impliedNow)}</div>
         </div>
         <div className="text-right">
           <div className="label text-[0.62rem] text-white/80">Realized APR (24h)</div>
-          <div className="mt-1 font-serif text-4xl tnum">{pct(realizedAvg)}</div>
+          <div className="mt-1 font-semibold tracking-tight text-4xl tnum">{pct(realizedAvg)}</div>
         </div>
       </div>
       <div className="mt-4 border-t border-white/10 pt-3">
@@ -44,7 +47,7 @@ export function ImpliedVsRealizedCard({
       </div>
       <LineChart
         className="mt-2"
-        width={460}
+        width={chartWidth}
         height={210}
         series={[
           { label: "Implied", variant: "lime", points: implied.filter((p) => p.ts >= since).map((p) => ({ ts: p.ts, v: p.apr })) },
@@ -56,7 +59,7 @@ export function ImpliedVsRealizedCard({
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`font-mono text-xs tracking-[0.12em] ${r === range ? "text-lime underline decoration-lime underline-offset-6" : "text-white/70 hover:text-white"}`}
+            className={` text-xs tracking-[0.06em] ${r === range ? "text-lime underline decoration-lime underline-offset-6" : "text-white/70 hover:text-white"}`}
           >
             {r}
           </button>

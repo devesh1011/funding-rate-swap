@@ -1,34 +1,87 @@
 import Link from "next/link";
-import { Logo } from "@/components/logo";
-import { explorer, SWAP_CONTRACT } from "@/lib/chain";
+import { LogoMark, Wordmark } from "@/components/logo";
+import { explorer, KEEPER_ACCOUNT, ORACLE_ACCOUNT, SWAP_CONTRACT } from "@/lib/chain";
+
+const COLUMNS: { title: string; links: { label: string; href: string; external?: boolean }[] }[] = [
+  {
+    title: "Learn",
+    links: [
+      { label: "How it works", href: "#how-it-works" },
+      { label: "Markets", href: "#markets" },
+      { label: "Oracle", href: "#oracle" },
+      { label: "Docs", href: "/docs" },
+    ],
+  },
+  {
+    title: "App",
+    links: [
+      { label: "Trade", href: "/trade" },
+      { label: "Get test tUSDC", href: "/trade" },
+    ],
+  },
+  {
+    title: "Onchain",
+    links: [
+      { label: "Contract", href: explorer.account(SWAP_CONTRACT), external: true },
+      { label: "Oracle signer", href: explorer.account(ORACLE_ACCOUNT), external: true },
+      { label: "Keeper", href: explorer.account(KEEPER_ACCOUNT), external: true },
+    ],
+  },
+];
 
 export function Closing() {
   return (
-    <section className="relative overflow-hidden pt-36">
-      <div className="rays !h-[85%]" />
-      <div className="relative text-center">
-        <h2 className="font-serif text-[clamp(4.5rem,11vw,12rem)] leading-none">
-          Funding, <em className="text-lime">fixed.</em>
+    <section className="relative overflow-hidden">
+      {/* Rays only behind the call to action: under the blended wordmark they would show through as stripes. */}
+      <div className="relative pt-36 pb-12 text-center">
+        <div className="rays rays-fade !h-[95%]" />
+        <h2 className="relative text-[clamp(3.5rem,8.5vw,9.5rem)] leading-none font-normal tracking-[-0.045em]">
+          Funding, <span className="accent text-lime">fixed.</span>
         </h2>
-        <Link href="/trade" className="pill pill-lime mt-10 px-16 py-5 text-xl">
+        <Link href="/trade" className="pill pill-lime relative mt-10 px-16 py-5 text-xl">
           Launch app
         </Link>
       </div>
-      <footer className="relative mx-auto mt-32 flex max-w-[1500px] flex-wrap items-center justify-between gap-6 border-t border-white/15 px-6 py-8 lg:px-10">
-        <Logo />
-        <nav className="label flex flex-wrap items-center gap-6 text-[0.8rem]">
-          <Link href="/docs" className="hover:text-lime">Docs</Link>
-          <span className="text-lime">•</span>
-          <a href={explorer.account(SWAP_CONTRACT)} target="_blank" rel="noreferrer" className="hover:text-lime">
-            Contract ↗
-          </a>
-          <span className="text-lime">•</span>
-          <a href="#oracle" className="hover:text-lime">Oracle</a>
-        </nav>
-        <div className="label flex items-center gap-4 border-white/15 text-[0.8rem] md:border-l md:pl-8">
-          <span className="text-lime">Testnet</span>
-          <span className="text-lime">•</span>
-          <span>Built on NEAR</span>
+
+      {/* Hyperliquid-style sign-off: a full-width wordmark standing on the
+          footer band. Its baseline sits on the band's edge and the descender
+          runs into the band; `difference` keeps it lime over the page and
+          turns it dark over the lime band, so every letter stays whole. */}
+      <div
+        className="pointer-events-none relative z-10 mt-28 -mb-[var(--descent)] px-4 text-[clamp(4.5rem,23.5vw,26rem)] leading-[0.8] text-lime mix-blend-difference [--descent:0.068em] lg:px-8"
+        aria-hidden
+      >
+        <Wordmark className="block whitespace-nowrap" />
+      </div>
+      <footer className="relative bg-lime text-ink">
+        <div className="mx-auto grid max-w-[1500px] gap-14 px-6 pt-[max(5rem,calc(4.6vw+3rem))] pb-16 md:grid-cols-[1fr_auto] lg:px-10">
+          <LogoMark className="size-20 text-ink" />
+          <nav className="grid grid-cols-2 gap-x-8 gap-y-12 sm:grid-cols-3 sm:gap-x-20" aria-label="Footer">
+            {COLUMNS.map((c) => (
+              <div key={c.title}>
+                <div className="text-[0.95rem] font-medium tracking-[0.02em] text-ink/55 uppercase">{c.title}</div>
+                <ul className="mt-7 space-y-2">
+                  {c.links.map((l) => (
+                    <li key={l.label}>
+                      {l.external ? (
+                        <a href={l.href} target="_blank" rel="noreferrer" className="text-[1.05rem] font-medium uppercase hover:underline">
+                          {l.label} ↗
+                        </a>
+                      ) : (
+                        <Link href={l.href} className="text-[1.05rem] font-medium uppercase hover:underline">
+                          {l.label}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </div>
+        <div className="mx-auto flex max-w-[1500px] flex-wrap justify-between gap-4 border-t border-ink/15 px-6 py-6 text-[0.8rem] font-medium tracking-[0.02em] uppercase lg:px-10">
+          <span>Testnet · built on NEAR</span>
+          <span className="text-ink/60">Rates from Hyperliquid BTC funding, signed 2-of-3</span>
         </div>
       </footer>
     </section>

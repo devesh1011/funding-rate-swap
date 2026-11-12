@@ -8,6 +8,7 @@
 //! mainnet), deposited with `ft_transfer_call`.
 
 pub mod math;
+pub mod trade_log;
 pub mod types;
 
 use math::*;
@@ -519,6 +520,7 @@ impl Contract {
         let mut book = self.books.get(&market_id).cloned().unwrap_or_default();
         let mut remaining = size;
         let mut fills = 0usize;
+        let mut log: Vec<trade_log::TradeRecord> = Vec::new();
         {
             let opp = if dir > 0 { &mut book.asks } else { &mut book.bids };
             while remaining > 0 && fills < MAX_FILLS && !opp.is_empty() {
@@ -571,6 +573,16 @@ impl Contract {
                     self.orders.insert(oid, order.clone());
                 }
                 self.accounts.insert(order.owner.clone(), maker);
+                log.push(trade_log::TradeRecord {
+                    ts: now,
+                    market_id,
+                    taker_side: side,
+                    taker: taker.clone(),
+                    maker: order.owner.clone(),
+                    size: U128(q as u128),
+                    rate: I128(price),
+                    liquidation: false,
+                });
                 emit(
                     "trade",
                     json!({
@@ -632,6 +644,7 @@ impl Contract {
             require!(new_oi <= market.params.oi_cap.0 as i128, "open interest cap reached");
         }
         self.accounts.insert(taker, acc);
+        trade_log::record(&log);
         PlaceResult { filled: U128((size - remaining) as u128), order_id }
     }
 
@@ -707,6 +720,16 @@ impl Contract {
         market.long_oi += pos_part(vn) - pos_part(vo) + pos_part(ln) - pos_part(lo);
         self.credit(&mut victim, -penalty);
         self.credit(&mut liq, penalty);
+        trade_log::record(&[trade_log::TradeRecord {
+            ts: now,
+            market_id,
+            taker_side: if n > 0 { Side::Long } else { Side::Short },
+            taker: liq_id.clone(),
+            maker: account_id.clone(),
+            size: U128(n.unsigned_abs()),
+            rate: I128(market.mark),
+            liquidation: true,
+        }]);
         self.markets.insert(market_id, market);
 
         let lh = self.health(&liq);
@@ -804,6 +827,23 @@ impl Contract {
                 .collect()
         };
         BookView { bids: side(&book.bids), asks: side(&book.asks) }
+    }
+
+    /// Latest trades in a market, newest first (at most 60).
+    pub fn get_trades(&self, market_id: u32, limit: Option<u32>) -> Vec<trade_log::TradeRecord> {
+        trade_log::market_trades(market_id, limit.unwrap_or(50) as usize)
+    }
+
+    /// Latest trades an account took part in (as taker, maker, liquidator or
+    /// liquidated), newest first (at most 40).
+    pub fn get_account_trades(&self, account_id: AccountId, limit: Option<u32>) -> Vec<trade_log::TradeRecord> {
+        trade_log::account_trades(&account_id, limit.unwrap_or(40) as usize)
+    }
+
+    /// Hourly OHLC candles of trade rates with volume, oldest first; hours
+    /// without trades are omitted. At most two weeks per call.
+    pub fn get_candles(&self, market_id: u32, from_ts: U64, to_ts: Option<U64>) -> Vec<trade_log::Candle> {
+        trade_log::candles(market_id, from_ts.0, to_ts.map_or(now_secs(), |t| t.0))
     }
 
     pub fn get_order(&self, order_id: U64) -> Option<OrderView> {
@@ -1142,6 +1182,7 @@ impl Contract {
             final_cum: m.final_cum.map(I128),
             best_bid: book.bids.first().map(|l| l.tick),
             best_ask: book.asks.first().map(|l| l.tick),
+            volume_24h: U128(trade_log::volume_24h(id, now_secs())),
         }
     }
 

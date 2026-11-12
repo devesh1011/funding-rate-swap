@@ -11,7 +11,7 @@ const Arrow = ({ dir }: { dir: "in" | "out" }) => (
 );
 
 const Coin = (
-  <span className="grid size-8 shrink-0 place-items-center rounded-full border border-lime font-mono text-sm text-lime">$</span>
+  <span className="grid size-8 shrink-0 place-items-center rounded-full border border-lime text-sm text-lime">$</span>
 );
 const Clock = (
   <span className="grid size-8 shrink-0 place-items-center rounded-full border border-lime">
@@ -25,8 +25,8 @@ function Card({ n, title, children }: { n: string; title: string; children: Reac
   return (
     <div className="glass flex flex-col p-8">
       <div className="flex items-start">
-        <span className="font-mono text-lg text-lime">{n}</span>
-        <h3 className="flex-1 pr-6 text-center font-serif text-7xl">{title}</h3>
+        <span className="text-lg text-lime">{n}</span>
+        <h3 className="flex-1 pr-6 text-center font-normal tracking-[-0.045em] text-6xl">{title}</h3>
       </div>
       <div className="my-6 h-px bg-white/12" />
       {children}
@@ -62,18 +62,18 @@ export async function HowItWorks() {
     <section id="how-it-works" className="relative overflow-hidden py-28">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-lime/15 to-transparent" />
       <div className="relative mx-auto max-w-[1500px] px-6 lg:px-10">
-        <h2 className="text-center font-serif text-[clamp(3.2rem,6.5vw,7rem)] leading-none">
-          Two sides. <em className="text-lime">One</em> rate.
+        <h2 className="text-center font-normal tracking-[-0.045em] text-[clamp(2.75rem,5.2vw,5.75rem)] leading-none">
+          Two sides. <span className="accent text-lime">One</span> rate.
         </h2>
         <div className="mt-16 grid gap-8 lg:grid-cols-3">
           <Card n="01" title="Fix">
             <div className="text-center">
-              <div className="label text-2xl tracking-[0.2em] text-lime">Long YU</div>
+              <div className="label text-2xl tracking-[0.1em] text-lime">Long YU</div>
               <div className="label mt-3 text-[0.78rem]">Pays fixed · receives floating</div>
             </div>
             <Flow out="Pays fixed" back="Receives floating" />
             <div className="my-6 h-px bg-white/12" />
-            <div className="space-y-4 font-mono text-lg tnum">
+            <div className="space-y-4 text-lg tnum">
               <div className="flex items-center gap-4">{Coin}{int(NOTIONAL)} YU @ {pct(rate)}</div>
               <div className="flex items-center gap-4">{Clock}{usd(perDay)} / day fixed</div>
             </div>
@@ -81,12 +81,12 @@ export async function HowItWorks() {
 
           <Card n="02" title="Float">
             <div className="text-center">
-              <div className="label text-2xl tracking-[0.2em] text-lime">Short YU</div>
+              <div className="label text-2xl tracking-[0.1em] text-lime">Short YU</div>
               <div className="label mt-3 text-[0.78rem]">Pays floating · receives fixed</div>
             </div>
             <Flow out="Pays floating" back="Receives fixed" />
             <div className="my-6 h-px bg-white/12" />
-            <div className="space-y-4 font-mono text-lg tnum">
+            <div className="space-y-4 text-lg tnum">
               <div className="flex items-center gap-4">{Coin}{int(NOTIONAL)} YU @ {pct(rate)}</div>
               <div className="flex items-center gap-4">{Clock}{usd(perDay)} / day received</div>
             </div>
@@ -106,14 +106,14 @@ export async function HowItWorks() {
                   <span key={p.ts} className="relative size-3 rounded-full bg-lime shadow-[0_0_10px_rgb(198_244_50/0.7)]" />
                 ))}
               </div>
-              <div className="mt-3 flex justify-between font-mono text-xs text-lime">
+              <div className="mt-3 flex justify-between text-xs text-lime">
                 {realized.slice(-6).map((p) => (
                   <span key={p.ts}>{hourUtc(p.ts)}</span>
                 ))}
               </div>
             </div>
             {last && (
-              <div className="glass-quiet mt-auto space-y-2 p-5 font-mono text-sm tnum">
+              <div className="glass-quiet mt-auto space-y-2 p-5 text-sm tnum">
                 <div className="label text-[0.65rem] text-lime">
                   Last hour · {hourUtc(last.ts)} UTC · realized {pct(last.apr)} APR
                 </div>

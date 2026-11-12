@@ -22,8 +22,8 @@ export async function Markets() {
     <section id="markets" className="relative overflow-hidden py-28">
       <div className="mx-auto max-w-[1500px] px-6 lg:px-10">
         <div className="flex items-center gap-8">
-          <h2 className="font-serif text-[clamp(3.6rem,7vw,7.5rem)] leading-none">Markets</h2>
-          <span className="label flex items-center gap-3 text-lg tracking-[0.25em] text-lime">
+          <h2 className="font-normal tracking-[-0.045em] text-[clamp(3rem,5.5vw,6rem)] leading-none">Markets</h2>
+          <span className="label flex items-center gap-3 text-lg tracking-[0.1em] text-lime">
             <span className="live-dot size-3 rounded-full bg-lime" />
             Live
           </span>
@@ -48,13 +48,13 @@ export async function Markets() {
                       {m.name}
                     </td>
                     <td className="border-l border-white/8 px-6 text-center text-xl">{date(m.maturityTs)}</td>
-                    <td className="border-l border-white/8 px-6 text-center font-mono text-xl tnum">{pct(m.implied)}</td>
-                    <td className="border-l border-white/8 px-6 text-center font-mono text-xl tnum">{m.bid === null ? "—" : pct(m.bid)}</td>
-                    <td className="border-l border-white/8 px-6 text-center font-mono text-xl tnum">{m.ask === null ? "—" : pct(m.ask)}</td>
-                    <td className={`border-l border-white/8 px-6 text-center font-mono text-xl tnum ${m.change !== null && m.change >= 0 ? "text-lime" : "text-white/80"}`}>
+                    <td className="border-l border-white/8 px-6 text-center text-xl tnum">{pct(m.implied)}</td>
+                    <td className="border-l border-white/8 px-6 text-center text-xl tnum">{m.bid === null ? "—" : pct(m.bid)}</td>
+                    <td className="border-l border-white/8 px-6 text-center text-xl tnum">{m.ask === null ? "—" : pct(m.ask)}</td>
+                    <td className={`border-l border-white/8 px-6 text-center text-xl tnum ${m.change !== null && m.change >= 0 ? "text-lime" : "text-white/80"}`}>
                       {m.change === null ? "—" : signedPct(m.change)}
                     </td>
-                    <td className="border-l border-white/8 px-6 text-center font-mono text-xl tnum">{usdCompact(m.openInterest)}</td>
+                    <td className="border-l border-white/8 px-6 text-center text-xl tnum">{usdCompact(m.openInterest)}</td>
                     <td className={`border-l border-white/8 px-6 text-center text-xl ${MODE_STYLE[m.mode]}`}>{MODE_LABEL[m.mode]}</td>
                   </tr>
                 ))}
@@ -63,7 +63,7 @@ export async function Markets() {
           </div>
           <div className="pointer-events-none absolute inset-x-[8%] -bottom-px h-px bg-lime shadow-[0_0_30px_6px_rgb(198_244_50/0.45)]" />
         </div>
-        <p className="mt-6 font-mono text-xs text-white/50">
+        <p className="mt-6 text-xs text-white/50">
           NEAR testnet · collateral tUSDC · implied = book mid (mark when one side is empty) · 24h change appears once a market is a day old.
         </p>
       </div>

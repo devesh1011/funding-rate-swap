@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
-const serif = Instrument_Serif({
-  variable: "--font-instrument-serif",
+// Hyperliquid's system: a grotesk for text, one italic serif accent. Inter is
+// their body face; Instrument Serif italic stands in for their Teodor (licensed).
+const sans = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const accent = Instrument_Serif({
+  variable: "--font-accent",
   weight: "400",
-  style: ["normal", "italic"],
-  subsets: ["latin"],
-});
-
-const mono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
-
-const sans = Geist({
-  variable: "--font-geist",
+  style: "italic",
   subsets: ["latin"],
 });
 
@@ -27,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${serif.variable} ${mono.variable} ${sans.variable} antialiased`}>
+    <html lang="en" className={`${sans.variable} ${accent.variable} antialiased`}>
       <body className="min-h-dvh bg-ink font-sans text-paper">{children}</body>
     </html>
   );

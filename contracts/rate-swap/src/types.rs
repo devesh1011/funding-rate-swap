@@ -249,6 +249,8 @@ pub struct MarketView {
     pub final_cum: Option<I128>,
     pub best_bid: Option<i32>,
     pub best_ask: Option<i32>,
+    /// Notional traded in the last 24 hours, 1e6 = 1 YU.
+    pub volume_24h: U128,
 }
 
 #[near(serializers = [json])]

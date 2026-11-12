@@ -5,7 +5,7 @@ Three long-running processes keep the testnet market alive. Each one signs real 
 | Bot | What it does | Account |
 | --- | --- | --- |
 | `oracle` | For each `hyperliquid:<COIN>` feed: every signer independently reads Hyperliquid's settled `fundingHistory`, signs `(contract, feed, interval, rate)` with its ed25519 key, and the submitter sends `submit_rates` once ≥ k signers agree. It backfills missed intervals in order, up to 24 per transaction, and never guesses: no data or no agreement means no submission, and the markets go close-only. | `oracle.fundswap-treasury.testnet` |
-| `maker` | Two-sided quotes on every active market, laddered (`MAKER_LEVELS`, default 3, `MAKER_LEVEL_STEP_BPS` apart, growing in size) around the 7-day mean of Hyperliquid funding (annualised, `MAKER_FAIR_HOURS`) ± `MAKER_SPREAD_BPS`. It stops quoting the side that would grow inventory past the cap, and re-quotes when fair moves or a quote is mostly filled. | `maker.fundswap-treasury.testnet` |
+| `maker` | Two-sided quotes on every active market, laddered (`MAKER_LEVELS`, default 7, `MAKER_LEVEL_STEP_BPS` = 10 apart, growing from 10k YU) around the 7-day mean of Hyperliquid funding (annualised, `MAKER_FAIR_HOURS`) ± `MAKER_SPREAD_BPS`. It stops quoting the side that would grow inventory past the cap, and re-quotes when fair moves or a quote is mostly filled. | `maker.fundswap-treasury.testnet` |
 | `keeper` | Walks all accounts via `list_accounts` / `get_account`. It liquidates any account below maintenance margin, taking the position over at mark and earning the penalty, and settles positions in matured markets. | `keeper.fundswap-treasury.testnet` |
 
 ## Run

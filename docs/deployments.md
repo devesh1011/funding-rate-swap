@@ -65,6 +65,17 @@ The staged liquidation below exposed a bug: the penalty was capped at the victim
 | --- | --- |
 | Redeploy `fundswap-lab.testnet` | `A42ypc4pgsCv6gDC8goAWgmp9QNxSWwctLBTFXZkQoj7` |
 
+### Contract upgrade: trade log (2026-11-12 16:40 UTC)
+
+Trades are now kept on the contract under their own storage prefixes, so the contract struct and its state layout are unchanged: the last 60 per market, the last 40 per account, and hourly OHLC candles with volume. New views: `get_trades`, `get_account_trades`, `get_candles`, and `volume_24h` in `MarketView`. Liquidations are logged too. History starts at this upgrade; earlier fills (the staged demo) are only in the `trade` events.
+
+| Step | Tx |
+| --- | --- |
+| Redeploy with trade log | `FF6uGfWQK8WeJSjFEou1qPor6tYDUaL1Sxb8ECFJvJfq` |
+| Redeploy: `get_candles` keeps the newest hours on long ranges | `4k9m9YirKVTC2Zpw9rTCRE8kUdj2ehexgUDrEJnkCrAo` |
+| First logged trade: `smoke` buys 1,000 YU @ 10.07 % from the maker, 22 Nov market | `8cspJ2qNMPeyhABvph16ezb9b3zz4eYPnc8ZkK8ddBvh` |
+| Faucet test: treasury sends 10,000 tUSDC to `smoke` (`/api/faucet`) | `3zfJfm2UTbj1nWv7PzyXGZX2deKGGRi4EBj3i3F5193R` |
+
 ## Bots (phase 2)
 
 | Bot | Account | Funded with |

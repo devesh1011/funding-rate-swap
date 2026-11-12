@@ -6,9 +6,7 @@
   --color-paper: #ffffff;
   --color-mute: #8a8a8f;
 
-  --font-serif: var(--font-instrument-serif), "Times New Roman", serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
-  --font-sans: var(--font-geist), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
 :root {
@@ -19,6 +17,8 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Inter everywhere; `.accent` is the one italic serif word. Tabular figures
+   go only on numbers that must align (`.tnum`): Inter widens hyphens too. */
 body {
   background: var(--color-ink);
   color: var(--color-paper);
@@ -52,9 +52,9 @@ body {
 
   /* Small uppercase monospace label. */
   .label {
-    font-family: var(--font-mono);
     font-size: 0.72rem;
-    letter-spacing: 0.18em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
@@ -111,6 +111,13 @@ body {
       radial-gradient(70% 100% at 50% 100%, #000 30%, transparent 78%),
       linear-gradient(to top, transparent, #000 35%);
     mask-composite: intersect;
+  }
+
+  .accent {
+    font-family: var(--font-accent), Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 
   .tnum {
