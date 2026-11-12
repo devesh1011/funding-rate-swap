@@ -91,6 +91,15 @@ export interface TxSummary {
 
 /** Latest transactions `signer` sent to the swap contract (NearBlocks v3). */
 export async function recentTxs(signer: string, limit = 10): Promise<TxSummary[]> {
+  // Optional context (links to recent txs): an indexer outage hides them, never the page.
+  try {
+    return await fetchRecentTxs(signer, limit);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRecentTxs(signer: string, limit: number): Promise<TxSummary[]> {
   const res = await fetch(`${NEARBLOCKS_API}/accounts/${SWAP_CONTRACT}/txns?signer=${signer}&limit=${limit}`, {
     signal: AbortSignal.timeout(15_000),
   });

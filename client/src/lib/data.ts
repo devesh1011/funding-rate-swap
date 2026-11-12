@@ -204,27 +204,34 @@ export async function getPredictedFunding(): Promise<number> {
 export async function getDepositQuote() {
   "use cache";
   cacheLife("minutes");
-  const api = oneClick();
-  const tokens = await api.tokens();
-  const origin = findToken(tokens, "USDC", "arb");
-  const { quote } = await api.quote(
-    depositToSwapQuote({
-      dry: true,
-      origin,
-      collateral: nearUsdc(tokens),
-      amount: 5_000_000n,
-      refundTo: "0x1111111111111111111111111111111111111111",
-      swapContract: process.env.MAINNET_SWAP_CONTRACT ?? "intents.near",
-      trader: "near",
-    }),
-  );
-  const amountIn = Number(quote.amountInFormatted);
-  const amountOut = Number(quote.amountOutFormatted);
-  return {
-    from: "Arbitrum",
-    amountIn,
-    amountOut,
-    feePct: ((amountIn - amountOut) / amountIn) * 100,
-    etaSecs: quote.timeEstimate,
-  };
+  // A third-party quote must never take the page down: 1Click sometimes has
+  // no solver quoting a pair. Report that, and the next refresh retries.
+  try {
+    const api = oneClick();
+    const tokens = await api.tokens();
+    const origin = findToken(tokens, "USDC", "arb");
+    const { quote } = await api.quote(
+      depositToSwapQuote({
+        dry: true,
+        origin,
+        collateral: nearUsdc(tokens),
+        amount: 5_000_000n,
+        refundTo: "0x1111111111111111111111111111111111111111",
+        swapContract: process.env.MAINNET_SWAP_CONTRACT ?? "intents.near",
+        trader: "near",
+      }),
+    );
+    const amountIn = Number(quote.amountInFormatted);
+    const amountOut = Number(quote.amountOutFormatted);
+    return {
+      ok: true as const,
+      from: "Arbitrum",
+      amountIn,
+      amountOut,
+      feePct: ((amountIn - amountOut) / amountIn) * 100,
+      etaSecs: quote.timeEstimate,
+    };
+  } catch (e) {
+    return { ok: false as const, from: "Arbitrum", amountIn: 5, reason: e instanceof Error ? e.message : "1Click unavailable" };
+  }
 }

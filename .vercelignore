@@ -1,0 +1,14 @@
+# The site only needs client/ plus the workspace packages it imports.
+contracts
+bots/*
+!bots/package.json
+docs
+.claude
+.agents
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+*.key.json
+submission*.json

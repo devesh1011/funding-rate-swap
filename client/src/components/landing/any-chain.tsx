@@ -118,18 +118,18 @@ export async function AnyChain() {
               </div>
               <div className="my-1 text-lime">↓</div>
               <div className="text-3xl font-semibold tracking-tight whitespace-nowrap">
-                Margin <span className="text-lime tnum">+{q.amountOut.toFixed(4)} USDC</span>
+                Margin <span className="text-lime tnum">{q.ok ? `+${q.amountOut.toFixed(4)} USDC` : "no quote now"}</span>
               </div>
             </div>
             <div className="mt-6">
               <Row icon={<span className="text-sm">✦</span>} label="Route" value="NEAR Intents 1Click" />
-              <Row icon={<span className="text-sm">◷</span>} label="ETA" value={`~${q.etaSecs}s`} />
-              <Row icon={<span className="text-sm">%</span>} label="Fee" value={`${q.feePct.toFixed(2)}%`} />
+              <Row icon={<span className="text-sm">◷</span>} label="ETA" value={q.ok ? `~${q.etaSecs}s` : "—"} />
+              <Row icon={<span className="text-sm">%</span>} label="Fee" value={q.ok ? `${q.feePct.toFixed(2)}%` : "—"} />
             </div>
             <Link href="/trade" className="pill pill-lime mt-4 w-full py-4 tracking-[0.1em]">
               DEPOSIT
             </Link>
-            <p className="mt-4 text-center text-[0.65rem] text-white/50">Live 1Click quote · refreshed every minute</p>
+            <p className="mt-4 text-center text-[0.65rem] text-white/50">{q.ok ? "Live 1Click quote · refreshed every minute" : `1Click: ${q.reason}. Retrying every minute.`}</p>
           </div>
         </div>
       </div>

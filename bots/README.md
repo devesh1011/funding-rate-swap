@@ -32,3 +32,15 @@ In this hackathon build the team runs all three signers, and they read the same 
 ## Staged liquidation demo
 
 `pnpm demo:liquidation [market]` (with the maker running as `MAKER_SKIP_MARKETS=<market>`) opens a 1M-YU long at 7 % for an account with barely more than initial margin. After the 15-minute mark window it prints a trade at −10 % between two other accounts. The victim falls below maintenance, and the running keeper liquidates it. Every step is a real testnet transaction between separate accounts. It is staged because ordinary hourly funding can't push a properly margined account under in a demo-length window.
+
+## Hosting
+
+The three bots run on a dedicated AWS EC2 instance (`fundswap-bots`, t4g.small, Ubuntu 24.04 arm64, us-east-1). The only inbound access is SSH from the operator's IP. Each bot is a systemd service, `fundswap@oracle`, `fundswap@maker` and `fundswap@keeper`, from the template in `deploy/fundswap@.service`. They run as an unprivileged `fundswap` user with a read-only filesystem except `logs/`, and restart on failure. Logs go to `/opt/fundswap/bots/logs/*.log` and rotate daily (`deploy/logrotate.conf`).
+
+```bash
+bots/deploy/deploy.sh ubuntu@<host>                       # ship code + restart; never copies secrets
+ssh ubuntu@<host> 'systemctl status fundswap@oracle'
+ssh ubuntu@<host> 'sudo tail -f /opt/fundswap/bots/logs/oracle.log'
+```
+
+Secrets live only on the host, mode 600: `/opt/fundswap/bots/.env` (oracle signer keys) and `/home/fundswap/.near-credentials/testnet/` (bot account keys).

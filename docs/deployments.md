@@ -103,6 +103,14 @@ Trades are now kept on the contract under their own storage prefixes, so the con
 | `demo-bear` sells into it → mark −10.00 %, victim net $290.21 < maintenance $1,423.97 | `6stLwGAhiZAVz6zATue6TbSLWAmUpmhEMYMLcLPgXMvC` |
 | **keeper bot liquidates the victim 13 s later** (takes 1M YU over at mark) | `CKaH6c19QGDDvJRLd3z9HHErFzNGCjF7Ez2bNxGXWZNS` |
 
+### Website (since 2026-11-12 19:45 UTC)
+
+**https://fundswap-drab.vercel.app** (Vercel project `fundswap`; root directory `client/`, Node 24). `/trade` is the testnet trading app. `/api/faucet` signs with the testnet treasury key, which is stored as a sensitive Vercel environment variable. First production faucet transfer: `62AcviwxCjtythptyFj7GrnmWJG6YC4uWumPhFvDLDBo`.
+
+### Bot hosting (since 2026-11-12 19:03 UTC)
+
+The oracle, maker and keeper run as systemd services on AWS EC2 `i-0039e1c73022f8f90` (`fundswap-bots`, t4g.small, us-east-1). See "Hosting" in `bots/README.md`. Before that they ran on the developer's machine.
+
 ## Mainnet
 
 Not deployed. Phase 3 (NEAR Intents) needs an explicit sign-off first.

@@ -18,3 +18,5 @@ submission*.json
 
 # bot logs
 bots/logs/
+.vercel
+.env*
