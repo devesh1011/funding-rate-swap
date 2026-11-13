@@ -19,8 +19,9 @@ Every row is a real transaction; open the hash on [testnet nearblocks](https://t
 | feed 0 | `hyperliquid:BTC` | hourly, starts 2026-11-12 09:00 UTC (`1794474000`), clamp 4 %/h (Hyperliquid's cap), CloseOnly after 3 h without a rate |
 | market 0 | BTC funding · 15 Nov 2026 | matures `1794700800` (2026-11-15 00:00 UTC) |
 | market 1 | BTC funding · 22 Nov 2026 | matures `1795305600` (2026-11-22 00:00 UTC) |
+| market 2 | BTC funding · 6 Dec 2026 | matures `1796515200` (2026-12-06 00:00 UTC), added 2026-11-13 so a market stays live through judging; opening mark 10.07 % (market 1's mark at the time) |
 
-Both markets: IM factor 3×, maintenance 0.66 × IM, rate floor 5 %, time floor 1 day, band ±50 % APR around mark, taker fee 0.1 % APR, mark EMA window 15 min, OI cap 1,000,000 tUSDC, opening mark 10.95 % (Hyperliquid's quiet-market baseline, 0.00125 %/h × 8760).
+All markets: IM factor 3×, maintenance 0.66 × IM, rate floor 5 %, time floor 1 day, band ±50 % APR around mark, taker fee 0.1 % APR, mark EMA window 15 min, OI cap 1,000,000 tUSDC, opening mark 10.95 % (Hyperliquid's quiet-market baseline, 0.00125 %/h × 8760).
 
 ### Setup transactions (2026-11-12)
 
@@ -33,6 +34,7 @@ Both markets: IM factor 3×, maintenance 0.66 × IM, rate floor 5 %, time floor 
 | `create_feed` hyperliquid:BTC | `7CUzjwo8XJ4Ep9sP29dvkCJg26v7BMahXpwiAADtqbk9` |
 | `create_market` 15 Nov | `8Ntq8rpsHQJArT2yWPZZz16yW27s4ekgpVMv5Vak5Z97` |
 | `create_market` 22 Nov | `GVqWCKzJtYHcH2v178bHEjatA5fY2CHjoyHsGqHmqeyN` |
+| `create_market` 6 Dec (2026-11-13) | `FA7gu5Ar3LugwX75PhZHCj44jy3zboJmk65778DsmkxZ` |
 
 ### CLI smoke test (`smoke.fundswap-treasury.testnet`)
 
@@ -103,6 +105,8 @@ Trades are now kept on the contract under their own storage prefixes, so the con
 | `demo-bear` sells into it → mark −10.00 %, victim net $290.21 < maintenance $1,423.97 | `6stLwGAhiZAVz6zATue6TbSLWAmUpmhEMYMLcLPgXMvC` |
 | **keeper bot liquidates the victim 13 s later** (takes 1M YU over at mark) | `CKaH6c19QGDDvJRLd3z9HHErFzNGCjF7Ez2bNxGXWZNS` |
 
+Since 2026-11-13 the maker runs with `MAKER_LEVELS=5`: 5 levels × 2 sides × 3 live markets = 30 orders, under the contract's 32 open orders per account.
+
 ### Website (since 2026-11-12 19:45 UTC)
 
 **https://fundswap-drab.vercel.app** (Vercel project `fundswap`; root directory `client/`, Node 24). Mainnet is the default: `/` and `/trade` run against `fundswap.near`. The testnet deployment is at `/testnet` and `/testnet/trade`, and a Mainnet / Testnet switch in the header moves between them. `/api/faucet` signs with the testnet treasury key, which is stored as a sensitive Vercel environment variable. First production faucet transfer: `62AcviwxCjtythptyFj7GrnmWJG6YC4uWumPhFvDLDBo`.
@@ -124,7 +128,7 @@ Every row is a real mainnet transaction; open the hash on [nearblocks](https://n
 | Oracle signers (2-of-3, ed25519, separate from testnet) | `ed25519:GpknitiGKAD8hRwJRvoWtaqmn1qZQJ1YNK5pUkqn8W1E`, `ed25519:DX2KxByqziFUYX9DtGWrKEQbDaxaUQha9rFDxhAux9KH`, `ed25519:AXZ2R2FSQN7UXM6BmvhyFnPpSo3Q5amkSpHoKFhqB2nr` |
 | Deployer (one-time, implicit) | `4736debeead9c5249bec9b985d6ec0d92cfbaecb2a4a0113b461040efb0d2442` |
 
-Limits: `deposit_cap` 10 USDC per account, market OI cap 100,000 YU, withdrawals via `intents.near`. Market 0 "BTC funding · 22 Nov 2026" (feed 0 `hyperliquid:BTC`, from 2026-11-12 19:00 UTC), with the same risk parameters as testnet. There is no mainnet maker or keeper.
+Limits: `deposit_cap` 10 USDC per account, market OI cap 100,000 YU, withdrawals via `intents.near`. Market 0 "BTC funding · 22 Nov 2026" (feed 0 `hyperliquid:BTC`, from 2026-11-12 19:00 UTC) and market 1 "BTC funding · 6 Dec 2026" (added 2026-11-13, opening mark 10.95 %), with the same risk parameters as testnet. There is no mainnet maker or keeper.
 
 | Step (2026-11-12) | Tx |
 | --- | --- |
@@ -135,6 +139,7 @@ Limits: `deposit_cap` 10 USDC per account, market OI cap 100,000 YU, withdrawals
 | Register contract on USDC | `EsGr7cdxnt3ssiRZs6dmNoUexVmcFvBJiirXZRR9xrp6` |
 | `create_feed` hyperliquid:BTC | `FiB45S3giqfU3925mQ6B1e6314CdDmgfWAkMMdiQmtMA` |
 | `create_market` 22 Nov | `BCtBZL2AnKCTe1G7d7iktXxpttQx14NiH2ukagWMJC4U` |
+| `create_market` 6 Dec (2026-11-13, approved by the owner) | `3hRoxTsucx4KUfZDKszCVYkrtTVPrmSW58efRWryXj9P` |
 | First mainnet funding interval (20:00 UTC, 10.95 % APR, 3/3 signers), from the AWS oracle | `pjBdFxXTvwCZfoeUCcHS93ArPKXJ4HQNNYi69kQ4vvn` |
 
 The mainnet oracle runs as `fundswap-mainnet@oracle` on the bots host.
