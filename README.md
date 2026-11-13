@@ -23,7 +23,7 @@ Perp funding is the largest yield source in crypto, and the most volatile. A BTC
 - **Settlement.** The contract settles lazily every hour against a **2-of-3 ed25519-signed** feed of Hyperliquid BTC funding, which the oracle bot submits. A feed with no rate for 3 hours puts the market in close-only mode.
 - **Bots** (Node, on AWS EC2 under systemd):
   - **oracle:** signs and submits each hour.
-  - **maker:** quotes a 7-level ladder around a 7-day fair rate (testnet).
+  - **maker:** quotes a 5-level ladder around a 7-day fair rate (testnet).
   - **keeper:** liquidates unhealthy accounts.
 - **One-click trading with a function-call access key.** The wallet adds, once, a key that may only call `place_order`, `cancel_order` and `cancel_all` on the contract, with a 0.5 NEAR gas allowance. The browser signs orders with it, so there is no wallet prompt per order. The key **cannot withdraw**: `withdraw` requires 1 yoctoNEAR, and NEAR rejects any deposit from a function-call key (tested on testnet: "Deposit is not allowed with function call"). The key is stored per account and network, only after it is confirmed on chain, and **Turn off** deletes it from the account.
 - **NEAR Intents (1Click), mainnet only:**
