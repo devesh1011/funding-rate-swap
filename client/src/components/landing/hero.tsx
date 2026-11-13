@@ -11,20 +11,21 @@ import { ImpliedVsRealizedCard } from "./implied-card";
 const EXAMPLE_YU = 1_000_000;
 
 export function Nav({ net }: { net: Net }) {
-  const trade = `${NETS[net].base}/trade`;
+  const base = NETS[net].base;
+  const trade = `${base}/trade`;
   return (
     <header className="relative z-20 mx-auto flex w-full max-w-[1500px] shrink-0 items-center justify-between px-6 py-[clamp(1rem,3dvh,1.5rem)] lg:px-10">
       <Link href="/" aria-label="Fundswap home">
         <Logo />
       </Link>
       <nav className="hidden items-center gap-12 text-[0.95rem] text-white/90 lg:flex">
-        <a href="#markets" className="flex items-center gap-3 hover:text-lime">
+        <a href={`${base}/#markets`} className="flex items-center gap-3 hover:text-lime">
           <span className="size-2 rounded-full bg-lime" />
           Markets
         </a>
-        <a href="#how-it-works" className="hover:text-lime">How it works</a>
+        <a href={`${base}/#how-it-works`} className="hover:text-lime">How it works</a>
         <Link href="/docs" className="hover:text-lime">Docs</Link>
-        <a href="#oracle" className="hover:text-lime">Oracle</a>
+        <a href={`${base}/#oracle`} className="hover:text-lime">Oracle</a>
       </nav>
       <div className="flex items-center gap-3">
         <div className="hidden md:block">

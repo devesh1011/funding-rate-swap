@@ -9,9 +9,9 @@ function columns(net: Net): { title: string; links: { label: string; href: strin
     {
       title: "Learn",
       links: [
-        { label: "How it works", href: "#how-it-works" },
-        { label: "Markets", href: "#markets" },
-        { label: "Oracle", href: "#oracle" },
+        { label: "How it works", href: `${c.base}/#how-it-works` },
+        { label: "Markets", href: `${c.base}/#markets` },
+        { label: "Oracle", href: `${c.base}/#oracle` },
         { label: "Docs", href: "/docs" },
       ],
     },
