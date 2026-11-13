@@ -6,6 +6,13 @@ A Boros-style market where perp traders swap floating funding for a fixed rate. 
 - Deadline: **2026-11-14T23:59:00Z** (repo public, X post up, submission sent)
 - Design source: Notion page "Funding-rate swap on NEAR". This plan cuts it down to what ships by the deadline.
 
+> **Status, 2026-11-13: built and deployed.** This file is the original plan, kept as written; the status lines inside it are dated. What shipped is in [`README.md`](README.md) and [`docs/deployments.md`](docs/deployments.md), and `node scripts/verify.ts` checks it against the live chain. Where the build differs from this plan:
+> - Markets: 15 Nov, 22 Nov and 6 Dec on testnet; 22 Nov and 6 Dec on mainnet (instead of a 24-hour and a 7-day maturity).
+> - Withdrawal to another chain is `withdraw` + `ft_transfer` to a 1Click deposit address (3.6), not `withdraw_to_intents`.
+> - Funding a Hyperliquid perp (3.7) is quoted live in the app but has not been run with real funds.
+> - The session key shipped as a NEAR function-call access key ("1-click trading", section 7).
+> - The meta-transaction relayer was not built.
+
 ---
 
 ## 0. The "no mocks" rule
@@ -248,7 +255,7 @@ Flow (from the skill): `GET /v0/tokens` → `POST /v0/quote` (dry) → `POST /v0
 | 3.7 Fund Hyperliquid perp | mainnet | `destinationAsset` = `1cs_v1:hypercore:hip1:0x6d1e7cde53ba9467b783cb7c530ce054` (8 decimals), `recipient` = the trader's Hyperliquid `0x` address. It credits the **perp** balance. Minimum 0.5 USDC. Moving money *out of* Hyperliquid costs a flat 0.2 USDC (plus 1 USDC extra via `usdSend`). |
 | 3.8 Status handling | API | Terminal: `SUCCESS`, `FAILED`, `REFUNDED`, `INCOMPLETE_DEPOSIT`. In progress: `PENDING_DEPOSIT`, `KNOWN_DEPOSIT_TX`, `PROCESSING`. All shown as-is. Margin is credited only when the contract's `ft_on_transfer` runs, never from a quote. |
 
-**Status (2026-11-12 14:25 UTC):** `intents/` built. All 7 routes quote live (`pnpm quotes`, see `intents/README.md`): about 0.01 % on stablecoin routes without a key, and about 0.32 USDC to the Hyperliquid perp. 1Click returns HTTP 500 for nonexistent NEAR accounts. The contract now enforces `deposit_cap` on `credit_to` deposits by forwarding the excess to the trader's `intents.near` balance (3 new unit tests, sandbox green, testnet redeployed). Mainnet deploy and the round trip are waiting for sign-off.
+**Status (2026-11-12 14:25 UTC):** `intents/` built. All 7 routes quote live (`pnpm quotes`, see `intents/README.md`): about 0.01 % on stablecoin routes without a key, and about 0.32 USDC to the Hyperliquid perp. 1Click returns HTTP 500 for nonexistent NEAR accounts. The contract now enforces `deposit_cap` on `credit_to` deposits by forwarding the excess to the trader's `intents.near` balance (3 new unit tests, sandbox green, testnet redeployed). Mainnet deploy and the round trip were then approved and done on 2026-11-12 (see `docs/deployments.md`).
 
 `intents/scripts/roundtrip.ts` runs 3.4 → trade → 3.6 with ≤ 5 USDC end to end, printing every tx hash and status. It refuses to run without `--i-confirm-mainnet`, and I will only run it after you say yes.
 
@@ -326,13 +333,15 @@ Resolved:
 - Hyperliquid funding cap: 4%/hour for all assets → `clamp = 40_000_000_000` (1e12 scale). See 5.1.
 - Signature-check gas (nearcore runtime config, via Context7): `ed25519_verify_base` = 210 Ggas, `ed25519_verify_byte` = 9 Mgas. Our signed message is about 70 bytes (contract ID, feed, `u64` interval, `i128` rate), so one check ≈ 0.21 Tgas and a 3-of-3 quorum ≈ 0.65 Tgas. That is negligible against the 300 Tgas limit, so `submit_rate` can verify all n signatures and could batch several backfill intervals per call (≤ 24, still under 20 Tgas for the checks).
 
+Resolved during the build:
+- `env::ed25519_verify` takes `(&[u8; 64], impl AsRef<[u8]>, &[u8; 32]) -> bool` in near-sdk 5.30.1; the oracle tests cover it.
+- The trader's account ID in `credit_to` is checked by `isNearAccountId` before quoting, and parsed as an `AccountId` by the contract.
+
 Still open:
-- The exact Rust signature of `env::ed25519_verify` in the near-sdk version `cargo near new` pins. Context7's near-sdk index had no entry for it. The expected form is `(&[u8; 64] sig, &[u8] msg, &[u8; 32] pk) -> bool`; it gets confirmed against the crate source once it's in `Cargo.lock` (phase 1, first hour).
-- Which listed wallets accept the `AddKey` action on testnet (phase 4, manual test per wallet).
-- The trader's account ID length/format in `credit_to` must pass the contract's `AccountId` parse; the client validates before quoting (phase 3).
+- Which listed wallets accept the `AddKey` action (1-click trading) on testnet: not yet tested by hand in each wallet.
 
 ## 11. Submission checklist (from `hackathon.md`)
 
-- [ ] Repo public before 2026-11-14T23:59Z, MIT `LICENSE`, README with "do X → see Y" steps, trust model, deployed addresses, libraries used, AI assistance disclosed
+- [x] Repo public before 2026-11-14T23:59Z, MIT `LICENSE`, README with "do X → see Y" steps, trust model, deployed addresses, libraries used, AI assistance disclosed
 - [ ] X post by you: problem first, one complete moment on video, NEAR's concrete role, tags @NEARProtocol #NEARHackathon
 - [ ] Payload built from your answers only, printed for your confirmation, `requestId` generated once, never committed

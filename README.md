@@ -1,10 +1,34 @@
 # Fundswap: funding-rate swaps on NEAR
 
+[![CI](https://github.com/devesh1011/funding-rate-swap/actions/workflows/ci.yml/badge.svg)](https://github.com/devesh1011/funding-rate-swap/actions/workflows/ci.yml)
+
 Fundswap is an on-chain market for trading **perpetual funding rates**. A trader takes a fixed rate against the floating Hyperliquid BTC funding rate, paid hourly, until a fixed maturity. The contract is written in Rust and deployed on NEAR mainnet (`fundswap.near`) and testnet (`fundswap-lab.testnet`). Margin can come from any chain through **NEAR Intents**.
 
 - **Live app:** https://fundswap-drab.vercel.app (mainnet at `/` and `/trade`, testnet at `/testnet` and `/testnet/trade`)
 - **Track:** `defi`. Hints used: **TRADING** and **NEAR INTENTS**. Chain Signatures are not used. Also uses NEAR function-call access keys for one-click trading.
 - Every transaction in this README and in [`docs/deployments.md`](docs/deployments.md) is real. Nothing in the app is mocked.
+
+## Verify it in one command
+
+```bash
+git clone https://github.com/devesh1011/funding-rate-swap && cd funding-rate-swap
+node scripts/verify.ts      # Node >= 24; no install, no keys, read-only
+```
+
+The script reads public NEAR RPC, a public Base RPC, the 1Click API and the live site, and prints PASS or FAIL with the evidence for each claim:
+
+- Both contracts run the same published wasm.
+- The oracle posted a 2-of-3 signed rate within the last 2 hours, on both networks.
+- Markets are open on both networks.
+- Mainnet is the capped beta: native USDC, 10 USDC per account, withdrawals via `intents.near`.
+- The NEAR Intents round trip happened: the deposit and payout transactions on Base succeeded, and `fundswap.near` logged the margin credit and the withdrawal.
+- 1Click quotes a Base → `fundswap.near` deposit right now.
+- The testnet maker quotes both sides of every open market.
+- Trades are logged on chain.
+- The keeper's liquidation is on chain.
+- Every page of the app returns 200.
+
+CI runs it every 6 hours, alongside the contract, bot and app tests (badge above).
 
 ## Problem
 
@@ -29,6 +53,24 @@ Perp funding is the largest yield source in crypto, and the most volatile. A BTC
 - **NEAR Intents (1Click), mainnet only:**
   - **Deposit in one step from Base, Arbitrum, Ethereum or Solana.** 1Click delivers NEAR USDC to the contract with `ft_transfer_call` and `msg = {"credit_to":"<your account>"}`, so it lands directly in your margin.
   - **Withdraw to any chain**, including a Hyperliquid perp balance. `withdraw` is followed by `storage_deposit` + `ft_transfer` to the 1Click deposit address, all in one transaction.
+
+## Claims → evidence
+
+Contract paths are under `contracts/rate-swap/`. Unit tests are in `src/tests.rs` and `src/math.rs`; the end-to-end test is `tests/sandbox.rs`. Hashes are listed in full in [`docs/deployments.md`](docs/deployments.md).
+
+| Claim | Code | Tests | On chain |
+| --- | --- | --- | --- |
+| Mainnet and testnet run the same contract | `contracts/rate-swap` | `end_to_end_on_sandbox` (local node, real NEP-141 token) | Code hash `56e7ZTwA…` on both `fundswap.near` and `fundswap-lab.testnet` |
+| Hourly rate from a 2-of-3 ed25519 oracle; tampered, duplicate, skipped or out-of-cap rates are rejected | `submit_rates` in `src/lib.rs`; `bots/src/oracle` | `oracle_accepts_quorum_and_accumulates`, `oracle_rejects_single_signer`, `oracle_rejects_duplicate_signer`, `oracle_rejects_tampered_rate`, `oracle_rejects_skipped_interval`, `oracle_never_rewrites_an_interval`, `oracle_rejects_rate_beyond_hyperliquid_cap` | Testnet interval 14:00 UTC 12 Nov, −4.70 % APR: `2WjTrGFf…`; mainnet first interval: `pjBdFxXT…` |
+| On-chain order book in implied APR with price-time priority, a ±50 % band and no self-trades | `place_order` in `src/lib.rs` | `price_then_time_priority`, `order_outside_band_rejected`, `self_trade_rejected` | Maker's first quotes: `FyPAZP4k…`; first logged trade: `8cspJ2qN…` |
+| Funding settles hourly and is zero-sum between longs and shorts | `src/math.rs` | `one_hour_of_funding`, `trade_then_funding_is_zero_sum`, `maturity_settles_and_releases_everything` | Every `rate` event on `fundswap-lab.testnet` |
+| Margin: you can't withdraw margin in use or unrealized gains | `withdraw` in `src/lib.rs`; `src/math.rs` | `initial_margin_example`, `trade_beyond_margin_rejected`, `cannot_withdraw_margin`, `withdrawable_excludes_margin_and_unrealized_gains` | |
+| A stale oracle puts the market in close-only mode | `effective_mode` in `src/lib.rs` | `close_only_when_oracle_is_stale` | |
+| Liquidation moves the position to the liquidator; the penalty is capped at net balance; insurance covers bad debt | `liquidate` in `src/lib.rs`; `bots/src/keeper` | `liquidation_transfers_position_and_pays_penalty`, `healthy_accounts_cannot_be_liquidated`, `penalty_is_capped_at_net_after_a_mark_gap`, `insurance_covers_bad_debt_of_a_flat_account` | Keeper liquidation: `CKaH6c19…`; bad debt covered: `7UzuzdRz…` |
+| NEAR Intents deposit: USDC from another chain lands as margin in one step (`credit_to`) | `ft_on_transfer` in `src/lib.rs`; `depositToSwapQuote` in `intents/src/oneclick.ts` | `credit_to_never_refunds_and_registers`, `credit_to_over_cap_forwards_excess_to_intents`, `failed_forward_is_credited_back` | Base `0x0dcd…6cf8` → NEAR `C9fpxXrp…`, 1.999796 USDC credited |
+| Withdrawal to another chain through 1Click | `withdraw` in `src/lib.rs`; `client/src/components/trade/intents.tsx` | "withdraw leg refunds to the trader's NEAR account" in `intents/test/oneclick.test.ts` | `5nX6VrnX…` → `ExGdjrfx…` → Base `0xc4a8…6e58`, 1.997192 USDC received |
+| Mainnet is capped at 10 USDC per account; the excess is forwarded, never held | `deposit_cap` in `src/lib.rs` | `credit_to_over_cap_forwards_excess_to_intents` | `get_config` on `fundswap.near`: `deposit_cap` = 10,000,000 |
+| The 1-click key can trade but can't withdraw | `client/src/components/trade/one-click.tsx`; `withdraw` requires 1 yoctoNEAR | — | Not possible to show as a hash: NEAR rejects the transaction before it is included ("Deposit is not allowed with function call"). See [access keys](https://docs.near.org/protocol/accounts-contracts/access-keys). |
 
 ## Try it (do X → see Y)
 
@@ -81,7 +123,9 @@ near contract call-function as-read-only fundswap.near get_market json-args '{"m
 | [`intents`](intents) | The 1Click client (plain `fetch`, shared with the web app), plus scripts for live quotes and the guarded mainnet round trip |
 | [`client`](client) | The Next.js 16 app: landing page and trading UI, wallet connection via near-connect, and cross-chain deposit and withdraw |
 | [`docs/deployments.md`](docs/deployments.md) | Every deployed account and transaction hash, on testnet and mainnet |
-| [`plan.md`](plan.md) | The build plan and phase status |
+| [`scripts/verify.ts`](scripts/verify.ts) | Read-only check of every claim against the live chain, Base, 1Click and the site |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI: contract unit and sandbox tests, bot and intents tests, app typecheck, lint and build; `verify.ts` every 6 hours |
+| [`plan.md`](plan.md) | The original build plan, with a status note on what changed |
 
 ## Deployed
 
@@ -98,6 +142,7 @@ You need Node ≥ 24, pnpm 11, Rust with `wasm32-unknown-unknown`, and `cargo-ne
 
 ```bash
 pnpm install
+pnpm verify                         # live checks, read-only (needs no install)
 
 # contract
 cd contracts/rate-swap

@@ -1,0 +1,68 @@
+name: CI
+
+# Tests on every push, plus a read-only check of the live deployments
+# (scripts/verify.ts) every 6 hours, so the badge shows whether mainnet and
+# testnet are still up, not only whether the code compiles.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Contract (unit + sandbox)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/rate-swap
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: |
+            contracts/rate-swap
+            contracts/test-token
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+      - run: cargo test --lib
+      - run: cargo test --test sandbox
+
+  app:
+    name: Bots, intents and web app
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @fundswap/bots test
+      - run: pnpm --filter @fundswap/intents test
+      - run: pnpm --filter @fundswap/bots typecheck
+      - run: pnpm --filter @fundswap/intents typecheck
+      - run: pnpm --filter @fundswap/client typecheck
+      - run: pnpm --filter @fundswap/client lint
+      - run: pnpm --filter @fundswap/client build
+
+  live:
+    name: Live deployments (read-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+      - run: node scripts/verify.ts
