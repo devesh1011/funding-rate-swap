@@ -7,7 +7,7 @@ import { NETS, type Net } from "./config";
 export { explorer, NETS, type Net } from "./config";
 
 /** JSON-RPC with failover: a contract-level error is final, anything else tries the next endpoint. */
-async function rpc<T>(urls: string[], method: string, params: object): Promise<T> {
+async function rpc<T>(urls: string[], method: string, params: object, complete: (r: T) => boolean = () => true): Promise<T> {
   let last: Error = new Error("no rpc endpoints");
   for (const url of urls) {
     try {
@@ -18,9 +18,11 @@ async function rpc<T>(urls: string[], method: string, params: object): Promise<T
         signal: AbortSignal.timeout(15_000),
       });
       const body = (await res.json().catch(() => ({}))) as { result?: T; error?: { message?: string; cause?: { name?: string } } };
-      if (body.result) return body.result;
-      last = new Error(`rpc ${method}: ${body.error?.cause?.name ?? body.error?.message ?? res.status}`);
-      if (body.error?.cause?.name === "CONTRACT_EXECUTION_ERROR" || body.error?.cause?.name === "UNKNOWN_ACCOUNT") throw last;
+      if (body.result && complete(body.result)) return body.result;
+      // Some nodes report a contract error inside `result` ({ error: "..." }) rather than as an RPC error.
+      const inner = (body.result as { error?: string } | undefined)?.error;
+      last = new Error(`rpc ${method}: ${inner ? `CONTRACT_EXECUTION_ERROR ${inner}` : (body.error?.cause?.name ?? body.error?.message ?? `incomplete reply (${res.status})`)}`);
+      if (inner || body.error?.cause?.name === "CONTRACT_EXECUTION_ERROR" || body.error?.cause?.name === "UNKNOWN_ACCOUNT") throw last;
     } catch (e) {
       last = e as Error;
       if (/CONTRACT_EXECUTION_ERROR|UNKNOWN_ACCOUNT/.test(last.message)) throw last;
@@ -32,14 +34,19 @@ async function rpc<T>(urls: string[], method: string, params: object): Promise<T
 /** View on the network's swap contract, at the latest final block or at a past block (archival). */
 export async function view<T>(net: Net, method: string, args: object = {}, blockId?: number): Promise<T> {
   const c = NETS[net];
-  const r = await rpc<{ result: number[] }>(blockId ? c.archivalRpc : c.rpc, "query", {
-    request_type: "call_function",
-    account_id: c.swap,
-    method_name: method,
-    args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-    ...(blockId ? { block_id: blockId } : { finality: "final" }),
-  });
-  return JSON.parse(Buffer.from(r.result).toString()) as T;
+  const r = await rpc<{ result?: number[] }>(
+    blockId ? c.archivalRpc : c.rpc,
+    "query",
+    {
+      request_type: "call_function",
+      account_id: c.swap,
+      method_name: method,
+      args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
+      ...(blockId ? { block_id: blockId } : { finality: "final" }),
+    },
+    (x) => Array.isArray(x.result),
+  );
+  return JSON.parse(Buffer.from(r.result as number[]).toString()) as T;
 }
 
 interface BlockHeader {

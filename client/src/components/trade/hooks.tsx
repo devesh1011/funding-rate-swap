@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useEffectEvent, useR
 import { Actions, useNearWallet } from "near-connect-hooks";
 import { explorer } from "@/lib/config";
 import { useNet } from "./net";
+import { forgetOneClick, isDeadKeyError, oneClickCovers, oneClickKey, sendWithKey } from "./one-click";
 
 /**
  * Re-runs `fn` every `ms` while mounted. Results are tagged with the `deps`
@@ -147,18 +148,25 @@ function decode<T>(o: Outcome): T | undefined {
  * toast with every tx hash, and returns the last call's decoded return value.
  */
 export function useTx() {
-  const { signAndSendTransactions } = useNearWallet();
+  const { signAndSendTransactions, signedAccountId } = useNearWallet();
+  const { id: net, swap } = useNet();
   const { push, update } = useToast();
   return useCallback(
     async <T,>(title: string, calls: Call[]): Promise<{ ok: boolean; value?: T; hashes?: string[] }> => {
-      const id = push({ kind: "pending", title: `${title}: confirm in wallet` });
+      // Trading calls go through the 1-click key when it is on; everything else through the wallet.
+      const key = oneClickCovers(calls, swap) ? oneClickKey(net, signedAccountId) : null;
+      const id = push({ kind: "pending", title: key ? `${title}: sending` : `${title}: confirm in wallet` });
       try {
-        const outcomes = (await signAndSendTransactions({
-          transactions: calls.map((c) => ({
-            receiverId: c.receiverId,
-            actions: [...(c.before ?? []), c].map((a) => Actions.functionCall(a.method, a.args, a.gas, a.deposit)),
-          })),
-        })) as unknown as Outcome[];
+        const outcomes = (
+          key
+            ? await sendWithKey(net, signedAccountId, key, calls)
+            : await signAndSendTransactions({
+                transactions: calls.map((c) => ({
+                  receiverId: c.receiverId,
+                  actions: [...(c.before ?? []), c].map((a) => Actions.functionCall(a.method, a.args, a.gas, a.deposit)),
+                })),
+              })
+        ) as unknown as Outcome[];
         const hashes = outcomes.map((o) => o.transaction.hash);
         const err = outcomes.map(failure).find(Boolean);
         if (err) {
@@ -168,10 +176,18 @@ export function useTx() {
         update(id, { kind: "ok", title, hashes });
         return { ok: true, value: decode<T>(outcomes[outcomes.length - 1]), hashes };
       } catch (e) {
-        update(id, { kind: "error", title: `${title} not sent`, detail: e instanceof Error ? e.message : String(e) });
+        // The failover RPC wraps a rejected transaction once per node; the first inner error has the reason.
+        const inner = (e as { errors?: unknown[] } | null)?.errors?.[0];
+        const detail = inner instanceof Error ? inner.message : e instanceof Error ? e.message : String(e);
+        if (key && isDeadKeyError(detail)) {
+          forgetOneClick(net, signedAccountId);
+          update(id, { kind: "error", title: `${title} not sent`, detail: "The 1-click key is gone or out of gas allowance, so 1-click is now off. Send again to sign in the wallet." });
+          return { ok: false };
+        }
+        update(id, { kind: "error", title: `${title} not sent`, detail });
         return { ok: false };
       }
     },
-    [signAndSendTransactions, push, update],
+    [signAndSendTransactions, signedAccountId, net, swap, push, update],
   );
 }

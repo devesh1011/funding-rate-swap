@@ -168,6 +168,11 @@ export default function Docs() {
               <li>
                 The taker pays a fee of <b className="text-white">0.1 % APR</b> on the notional for the time left, paid into the insurance fund. Makers pay nothing.
               </li>
+              <li>
+                <b className="text-white">1-click trading:</b> your wallet can add a NEAR function-call access key that may only call <C>place_order</C>, <C>cancel_order</C> and{" "}
+                <C>cancel_all</C> on the contract, with a 0.5 NEAR gas allowance. The app signs orders with it, so trading needs no wallet prompt. It cannot withdraw: NEAR rejects
+                any deposit from a function-call key, and <C>withdraw</C> requires 1 yoctoNEAR. Turning it off deletes the key from your account.
+              </li>
             </ul>
             <p>The mark rate is a time-weighted EMA of trade rates, with a 15-minute window:</p>
             <Formula>mark ← mark + (trade rate − mark) × min(elapsed, 15 min) / 15 min</Formula>

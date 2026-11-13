@@ -3,7 +3,7 @@
 Fundswap is an on-chain market for trading **perpetual funding rates**. A trader takes a fixed rate against the floating Hyperliquid BTC funding rate, paid hourly, until a fixed maturity. The contract is written in Rust and deployed on NEAR mainnet (`fundswap.near`) and testnet (`fundswap-lab.testnet`). Margin can come from any chain through **NEAR Intents**.
 
 - **Live app:** https://fundswap-drab.vercel.app (mainnet at `/` and `/trade`, testnet at `/testnet` and `/testnet/trade`)
-- **Track:** `defi`. Hints used: **TRADING** and **NEAR INTENTS**. Chain Signatures are not used.
+- **Track:** `defi`. Hints used: **TRADING** and **NEAR INTENTS**. Chain Signatures are not used. Also uses NEAR function-call access keys for one-click trading.
 - Every transaction in this README and in [`docs/deployments.md`](docs/deployments.md) is real. Nothing in the app is mocked.
 
 ## Problem
@@ -25,6 +25,7 @@ Perp funding is the largest yield source in crypto, and the most volatile. A BTC
   - **oracle:** signs and submits each hour.
   - **maker:** quotes a 7-level ladder around a 7-day fair rate (testnet).
   - **keeper:** liquidates unhealthy accounts.
+- **One-click trading with a function-call access key.** The wallet adds, once, a key that may only call `place_order`, `cancel_order` and `cancel_all` on the contract, with a 0.5 NEAR gas allowance. The browser signs orders with it, so there is no wallet prompt per order. The key **cannot withdraw**: `withdraw` requires 1 yoctoNEAR, and NEAR rejects any deposit from a function-call key (tested on testnet: "Deposit is not allowed with function call"). The key is stored per account and network, only after it is confirmed on chain, and **Turn off** deletes it from the account.
 - **NEAR Intents (1Click), mainnet only:**
   - **Deposit in one step from Base, Arbitrum, Ethereum or Solana.** 1Click delivers NEAR USDC to the contract with `ft_transfer_call` and `msg = {"credit_to":"<your account>"}`, so it lands directly in your margin.
   - **Withdraw to any chain**, including a Hyperliquid perp balance. `withdraw` is followed by `storage_deposit` + `ft_transfer` to the 1Click deposit address, all in one transaction.
@@ -41,7 +42,9 @@ You need a NEAR testnet wallet (for example Meteor or MyNearWallet, with a `.tes
 4. Enter an amount and click **Activate & deposit** (one wallet prompt: 0.1 NEAR storage + `ft_transfer_call`) → *Net balance* in the account card goes up.
 5. In the ticket, pick **Long** or **Short**, enter a size (e.g. 1,000 YU) and submit a market order → you see a fill toast with a nearblocks link. The trade appears under **Market trades**, and the position appears under **Positions** with its average fixed rate, mark, value and initial margin.
 6. Wait for the next hour → the oracle posts the new rate (*Oracle* panel), and the account card's *Net balance* moves by the hourly funding.
-7. Click **Close** on the position, then **Withdraw** → the tUSDC returns to your wallet.
+7. Under the ticket, click **Enable** next to *1-click trading* and approve the one wallet prompt (it adds a function-call key) → the toggle shows *on*.
+8. Submit another order → it fills with no wallet prompt; the toast still links the nearblocks transaction, signed by the limited key.
+9. Click **Close** on the position, then **Withdraw** → **Withdraw** still asks your wallet, because the limited key can't move funds. The tUSDC returns to your wallet.
 
 ### Mainnet: NEAR Intents deposit, real money
 
@@ -136,7 +139,7 @@ This is a hackathon build, and these limits are disclosed rather than hidden:
 - **Bots and intents:** near-api-js 7.4.0, Node 24 built-in TypeScript, `node:test`.
 - **App:**
   - Next.js 16.4.6, React 19.3, Tailwind CSS 4.3.3.
-  - Wallet: near-connect-hooks 1.1.6 and @hot-labs/near-connect 0.11.4.
+  - Wallet: near-connect-hooks 1.1.6 and HOT's @hot-labs/near-connect 0.11.4 (HOT is a hackathon partner).
   - Fonts: Inter and Instrument Serif.
 - **External APIs:**
   - [NEAR Intents 1Click](https://docs.near-intents.org/integration/distribution-channels/1click-api).

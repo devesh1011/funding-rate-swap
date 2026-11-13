@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { OneClickToggle, useOneClick } from "./one-click";
 import { pct, usd } from "@/lib/format";
 import {
   estimateFill,
@@ -52,6 +53,7 @@ export function OrderTicket({
   onDone: () => void;
 }) {
   const tx = useTx();
+  const oneClick = useOneClick();
   const c = useNet();
   const [side, setSide] = useState<Side>("Long");
   const [kind, setKind] = useState<Kind>("Limit");
@@ -223,7 +225,7 @@ export function OrderTicket({
           onClick={submit}
           className={`mt-5 w-full rounded-lg py-3.5 font-medium text-ink ${side === "Long" ? "bg-lime" : "bg-white"} disabled:cursor-not-allowed disabled:opacity-40`}
         >
-          {busy ? "Confirm in wallet…" : `${side === "Long" ? "Long" : "Short"} ${size || 0} YU`}
+          {busy ? (oneClick.on ? "Sending…" : "Confirm in wallet…") : `${side === "Long" ? "Long" : "Short"} ${size || 0} YU`}
         </button>
       ) : (
         <button onClick={onConnect} className="mt-5 w-full rounded-lg bg-lime py-3.5 font-medium text-ink">
@@ -231,6 +233,7 @@ export function OrderTicket({
         </button>
       )}
       {problem && <p className="mt-2 text-[0.7rem] text-white/55">{problem}</p>}
+      {connected && <OneClickToggle />}
     </div>
   );
 }
