@@ -21,6 +21,7 @@ import {
 } from "@/lib/swap";
 import { useTx } from "./hooks";
 import { useNet } from "./net";
+import type { TicketPreset } from "./hedge";
 
 const KINDS: { kind: Kind; label: string; hint: string }[] = [
   { kind: "Limit", label: "Limit", hint: "Fills what crosses, rests the rest" },
@@ -38,6 +39,7 @@ export function OrderTicket({
   connected,
   onConnect,
   onDone,
+  preset,
 }: {
   market: MarketView;
   account: AccountView | null | undefined;
@@ -51,15 +53,17 @@ export function OrderTicket({
   connected: boolean;
   onConnect: () => void;
   onDone: () => void;
+  /** Starting side, size and kind (from the hedge calculator); the parent remounts the ticket to apply a new one. */
+  preset?: TicketPreset;
 }) {
   const tx = useTx();
   const oneClick = useOneClick();
   const c = useNet();
-  const [side, setSide] = useState<Side>("Long");
-  const [kind, setKind] = useState<Kind>("Limit");
+  const [side, setSide] = useState<Side>(preset?.side ?? "Long");
+  const [kind, setKind] = useState<Kind>(preset?.kind ?? "Limit");
   // Sizes that fit the network: with mainnet's 10 USDC deposit cap, ~1,000 YU is the most margin allows.
   const sizes = c.depositCap === null ? ["1000", "10000", "50000", "100000"] : ["100", "250", "500", "1000"];
-  const [size, setSize] = useState(sizes[1]);
+  const [size, setSize] = useState(preset?.size ?? sizes[1]);
   const [busy, setBusy] = useState(false);
 
   const sizeRaw = parseUsdc(size);

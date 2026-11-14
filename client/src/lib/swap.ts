@@ -290,3 +290,51 @@ export function liquidationRates(
   };
   return { below: search(-1), above: search(1) };
 }
+
+// ---------------------------------------------------------------- settled funding
+
+/**
+ * Net funding a position has settled so far, in USDC: received floating minus
+ * paid fixed, hour by hour, like the contract's `funding_owed`. Rebuilt from
+ * the account's fills in this market and the oracle's hourly rates; a fill at
+ * time t first counts for the payment of the hour that ends after t.
+ * `hourly[i].hourly` is the fraction paid for the hour ending at `ts`.
+ * Returns null when the fills don't add up to the position on chain (the
+ * account trade log keeps only the last 40 fills), so a partial sum is never shown.
+ */
+export function settledFunding(
+  pos: PositionView,
+  me: string,
+  trades: TradeRecord[],
+  hourly: { ts: number; hourly: number }[],
+  upToTs: number,
+): number | null {
+  const fills = trades
+    .filter((t) => t.market_id === pos.market_id && t.taker !== t.maker && (t.taker === me || t.maker === me))
+    .map((t) => {
+      const long = (t.taker === me) === (t.taker_side === "Long");
+      const size = toNum(t.size) * (long ? 1 : -1);
+      return { ts: t.ts, dn: size, dFlow: (size * rateToPct(t.rate)) / 100 };
+    })
+    .sort((a, b) => a.ts - b.ts);
+  const n = fills.reduce((s, f) => s + f.dn, 0);
+  const flow = fills.reduce((s, f) => s + f.dFlow, 0);
+  const posFlow = Number(BigInt(pos.fixed_flow)) / 1e18;
+  if (!fills.length || Math.abs(n - toNum(pos.n)) > 1e-6 || Math.abs(flow - posFlow) > 1e-6 + Math.abs(posFlow) * 1e-9) return null;
+
+  let i = 0;
+  let curN = 0;
+  let curFlow = 0;
+  let total = 0;
+  for (const p of hourly) {
+    if (p.ts > upToTs) break;
+    while (i < fills.length && fills[i].ts < p.ts) {
+      curN += fills[i].dn;
+      curFlow += fills[i].dFlow;
+      i++;
+    }
+    if (i === 0) continue;
+    total += curN * p.hourly - (curFlow * 3_600) / YEAR_SECS;
+  }
+  return total;
+}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { int, pct, usd } from "@/lib/format";
-import { rateToPct, shortName, tickToPct, TGAS, toNum, type AccountView, type MarketView, type TradeRecord } from "@/lib/swap";
+import { int, pct, signedUsd, usd } from "@/lib/format";
+import { rateToPct, settledFunding, shortName, tickToPct, TGAS, toNum, type AccountView, type MarketView, type TradeRecord } from "@/lib/swap";
 import { TradeHistory } from "./trades";
 import { useTx } from "./hooks";
 import { useNet } from "./net";
@@ -19,11 +19,17 @@ export function Portfolio({
   account,
   markets,
   trades,
+  hourly,
+  settledTs,
   onDone,
 }: {
   account: AccountView | null | undefined;
   markets: MarketView[];
   trades: TradeRecord[] | undefined;
+  /** Hourly underlying funding (the rates the oracle posts), oldest first. */
+  hourly: { ts: number; hourly: number }[];
+  /** Last hour the oracle has settled, unix seconds. */
+  settledTs: number | undefined;
   onDone: () => void;
 }) {
   const tx = useTx();
@@ -81,11 +87,11 @@ export function Portfolio({
           )
         ) : tab === "positions" ? (
           positions.length ? (
-            <table className="w-full min-w-[760px]">
+            <table className="w-full min-w-[980px]">
               <thead>
                 <tr>
-                  {["Market", "Side", "Size", "Avg fixed", "Mark", "Value", "Init. margin", "Expires", ""].map((c) => (
-                    <th key={c} className={th}>{c}</th>
+                  {COLUMNS.map(([c, hint]) => (
+                    <th key={c} className={th} title={hint}>{c}</th>
                   ))}
                 </tr>
               </thead>
@@ -94,6 +100,9 @@ export function Portfolio({
                   const m = byId.get(p.market_id);
                   const n = BigInt(p.n);
                   const value = toNum(p.value);
+                  const settled =
+                    account && trades && settledTs !== undefined ? settledFunding(p, account.account_id, trades, hourly, Math.min(settledTs, m?.maturity_ts ?? settledTs)) : null;
+                  const total = settled === null ? null : settled + value;
                   return (
                     <tr key={p.market_id} className="border-t border-white/6">
                       <td className={td}>{m ? shortName(m) : p.market_id}</td>
@@ -101,7 +110,13 @@ export function Portfolio({
                       <td className={td}>{int(Math.abs(toNum(n)))} YU</td>
                       <td className={td}>{p.avg_rate ? pct(rateToPct(p.avg_rate)) : "—"}</td>
                       <td className={td}>{m ? pct(rateToPct(m.mark)) : "—"}</td>
-                      <td className={`${td} ${value >= 0 ? "text-lime" : "text-white/80"}`}>{usd(value)}</td>
+                      <td className={`${td} ${value >= 0 ? "text-lime" : "text-white/80"}`}>{signedUsd(value)}</td>
+                      <td
+                        title={settled === null ? "Not shown: this position has fills older than the last 40 your trade log keeps" : undefined}
+                        className={`${td} ${settled === null ? "text-white/40" : settled >= 0 ? "text-lime" : "text-white/80"}`}
+                      >
+                        {settled === null ? "—" : signedUsd(settled)}</td>
+                      <td className={`${td} font-medium ${total === null ? "text-white/40" : total >= 0 ? "text-lime" : "text-white/80"}`}>{total === null ? "—" : signedUsd(total)}</td>
                       <td className={td}>{usd(toNum(p.initial_margin))}</td>
                       <td className={td}>{left(p.secs_left)}</td>
                       <td className={`${td} text-right`}>
@@ -155,5 +170,19 @@ export function Portfolio({
     </div>
   );
 }
+
+const COLUMNS: [string, string?][] = [
+  ["Market"],
+  ["Side"],
+  ["Size"],
+  ["Avg fixed", "Your locked fixed rate: the size-weighted rate of your fills"],
+  ["Mark"],
+  ["Unrealized PnL", "What the rest of the term is worth if the underlying pays the mark rate until maturity: (size × mark − fixed leg) × time left"],
+  ["Funding settled", "Floating received minus fixed paid so far, hour by hour, rebuilt from your fills and the oracle's rates (fees not included)"],
+  ["Total PnL", "Funding settled + unrealized PnL"],
+  ["Init. margin"],
+  ["Expires"],
+  [""],
+];
 
 const Empty = ({ text }: { text: string }) => <div className="px-6 py-10 text-center text-sm text-white/40">{text}</div>;

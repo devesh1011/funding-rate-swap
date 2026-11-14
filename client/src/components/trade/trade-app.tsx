@@ -17,6 +17,7 @@ import { AccountCard, type FundsMode } from "./margin";
 import { Portfolio } from "./portfolio";
 import { RateChart } from "./rate-chart";
 import { OrderTicket } from "./ticket";
+import { HedgeCalculator, type TicketPreset } from "./hedge";
 import { MarketTrades } from "./trades";
 import { NetProvider, useNet } from "./net";
 
@@ -109,6 +110,14 @@ function Trade({ initial }: { initial: TradeInitial }) {
   const ticketRate =
     rateInput?.marketId === market.id ? rateInput.value : (ask !== null ? tickToPct(ask) : rateToPct(market.mark)).toFixed(2);
   const setTicketRate = (value: string) => setRateInput({ marketId: market.id, value });
+
+  const [ticketTab, setTicketTab] = useState<"trade" | "hedge">("trade");
+  // Each preset remounts the ticket with its side, size and kind.
+  const [preset, setPreset] = useState<{ n: number; value: TicketPreset } | null>(null);
+  const loadPreset = (value: TicketPreset) => {
+    setPreset((p) => ({ n: (p?.n ?? 0) + 1, value }));
+    setTicketTab("trade");
+  };
 
   const [funds, setFunds] = useState<FundsMode | null>(null);
   const openFunds = (m: FundsMode) => (signedAccountId ? setFunds(m) : void signIn());
@@ -231,24 +240,41 @@ function Trade({ initial }: { initial: TradeInitial }) {
 
           {/* Order ticket */}
           <Panel>
+            <div className="grid grid-cols-2 border-b border-white/[0.07]">
+              {(["trade", "hedge"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTicketTab(t)}
+                  className={`py-3 text-sm ${ticketTab === t ? "border-b-2 border-lime bg-white/[0.03] font-medium text-white" : "text-white/55 hover:text-white"}`}
+                >
+                  {t === "trade" ? "Trade" : "Hedge a perp"}
+                </button>
+              ))}
+            </div>
             <div className="p-4">
-              <OrderTicket
-                market={market}
-                account={account.data}
-                book={book.data}
-                rate={ticketRate}
-                onRate={setTicketRate}
-                now={nowSec}
-                connected={!!signedAccountId}
-                onConnect={() => signIn()}
-                onDone={refreshAll}
-              />
+              {ticketTab === "hedge" ? (
+                <HedgeCalculator market={market} account={account.data} book={book.data} hourly={initial.realized} now={nowSec} onLoad={loadPreset} />
+              ) : (
+                <OrderTicket
+                  key={preset?.n ?? 0}
+                  preset={preset?.value}
+                  market={market}
+                  account={account.data}
+                  book={book.data}
+                  rate={ticketRate}
+                  onRate={setTicketRate}
+                  now={nowSec}
+                  connected={!!signedAccountId}
+                  onConnect={() => signIn()}
+                  onDone={refreshAll}
+                />
+              )}
             </div>
           </Panel>
 
           {/* Positions, orders, history */}
           <Panel className="min-h-[320px] xl:col-span-2">
-            <Portfolio account={account.data} markets={markets} trades={myTrades.data} onDone={refreshAll} />
+            <Portfolio account={account.data} markets={markets} trades={myTrades.data} hourly={initial.realized} settledTs={feed?.last_ts} onDone={refreshAll} />
           </Panel>
 
           {/* Margin account */}
