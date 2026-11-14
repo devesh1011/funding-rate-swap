@@ -8,6 +8,8 @@ export const RATE_ONE = 1_000_000_000_000n; // 100 % APR
 export const YEAR_SECS = 31_536_000;
 export const ONE_YOCTO = "1";
 export const STORAGE_DEPOSIT = "100000000000000000000000"; // 0.1 NEAR
+/** NEAR a wallet needs to send a deposit: prepaid gas, plus the 0.1 NEAR storage on the first one. */
+export const nearNeeded = (activated: boolean) => (activated ? 20_000_000_000_000_000_000_000n : 140_000_000_000_000_000_000_000n); // 0.02 / 0.14 NEAR
 export const TGAS = (n: number) => (BigInt(n) * 1_000_000_000_000n).toString();
 
 export type Side = "Long" | "Short";
@@ -110,29 +112,18 @@ export interface FeedView {
   stale_after_secs: number;
 }
 
-/** Contract view with failover: a rate limit or network error tries the next of the network's RPCs. */
-async function view<T>(rpcs: string[], contractId: string, method: string, args: object = {}): Promise<T> {
+/** RPC `query` with failover: a rate limit or network error tries the next of the network's RPCs. */
+async function query<T>(rpcs: string[], params: object): Promise<T> {
   let last: Error = new Error("no rpc");
   for (const url of rpcs) {
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "query",
-          params: {
-            request_type: "call_function",
-            finality: "optimistic",
-            account_id: contractId,
-            method_name: method,
-            args_base64: btoa(JSON.stringify(args)),
-          },
-        }),
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { finality: "optimistic", ...params } }),
       });
-      const body = (await res.json()) as { result?: { result: number[] }; error?: { cause?: { name?: string }; message?: string } };
-      if (body.result) return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
+      const body = (await res.json()) as { result?: T; error?: { cause?: { name?: string }; message?: string } };
+      if (body.result) return body.result;
       last = new Error(body.error?.cause?.name ?? body.error?.message ?? `rpc ${res.status}`);
       if (body.error?.cause?.name === "CONTRACT_EXECUTION_ERROR") throw last;
     } catch (e) {
@@ -143,11 +134,30 @@ async function view<T>(rpcs: string[], contractId: string, method: string, args:
   throw last;
 }
 
+/** Contract view call. */
+async function view<T>(rpcs: string[], contractId: string, method: string, args: object = {}): Promise<T> {
+  const r = await query<{ result: number[] }>(rpcs, {
+    request_type: "call_function",
+    account_id: contractId,
+    method_name: method,
+    args_base64: btoa(JSON.stringify(args)),
+  });
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))) as T;
+}
+
+/** NEAR an account can spend: its balance minus what its own storage locks (1e19 yoctoNEAR per byte). */
+async function nearAvailable(rpcs: string[], account_id: string): Promise<bigint> {
+  const a = await query<{ amount: string; storage_usage: number }>(rpcs, { request_type: "view_account", account_id });
+  const free = BigInt(a.amount) - BigInt(a.storage_usage) * 10_000_000_000_000_000_000n;
+  return free > 0n ? free : 0n;
+}
+
 /** Per-wallet reads on one network; shared market data comes from /api/live. */
 export const swapReads = (c: NetConfig) => ({
   account: (account_id: string) => view<AccountView | null>(c.rpc, c.swap, "get_account", { account_id }),
   accountTrades: (account_id: string, limit = 40) => view<TradeRecord[]>(c.rpc, c.swap, "get_account_trades", { account_id, limit }),
   tokenBalance: (account_id: string) => view<string>(c.rpc, c.collateral, "ft_balance_of", { account_id }),
+  nearBalance: (account_id: string) => nearAvailable(c.rpc, account_id),
 });
 
 // ---------------------------------------------------------------- units

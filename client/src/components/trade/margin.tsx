@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { usd } from "@/lib/format";
-import { ONE_YOCTO, parseUsdc, STORAGE_DEPOSIT, TGAS, toNum, type AccountView } from "@/lib/swap";
-import { useToast, useTx, type Call } from "./hooks";
+import { nearNeeded, ONE_YOCTO, parseUsdc, STORAGE_DEPOSIT, swapReads, TGAS, toNum, type AccountView } from "@/lib/swap";
+import { usePoll, useToast, useTx, type Call } from "./hooks";
 import { useNet } from "./net";
 
 export type FundsMode = "deposit" | "withdraw" | "transfer";
@@ -142,6 +142,11 @@ export function FundsForm({
   const { push, update } = useToast();
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  // Gas and the first deposit's storage are paid in NEAR; a fresh wallet often holds none.
+  const near = usePoll(() => (mode === "deposit" ? swapReads(c).nearBalance(accountId) : Promise.resolve(undefined)), 15_000, [mode, accountId, c.id]);
+  const needNear = nearNeeded(Boolean(account?.storage_paid));
+  const lowNear = mode === "deposit" && near.data !== undefined && near.data < needNear;
+  const fmtNear = (y: bigint) => (Number(y / 10_000_000_000_000_000_000n) / 10_000).toString();
   const h = account?.health;
   const raw = parseUsdc(amount);
   // Mainnet caps each account's cash; a deposit past the cap would be refunded, so don't offer it.
@@ -154,6 +159,8 @@ export function FundsForm({
   const blocker =
     mode === "deposit" && walletMax === 0n
       ? `Your NEAR wallet holds no ${c.symbol}.`
+      : lowNear
+        ? `Your wallet has ${fmtNear(near.data!)} NEAR; ${account?.storage_paid ? "a deposit needs" : "activating and depositing needs"} about ${fmtNear(needNear)} NEAR for gas${account?.storage_paid ? "" : " and the 0.1 NEAR account storage"}.`
       : mode === "deposit" && capRoom !== null && capRoom <= 0n
         ? `You're at the ${c.depositCap} ${c.symbol} beta cap.`
         : mode === "withdraw" && max === 0n
@@ -166,11 +173,13 @@ export function FundsForm({
 
   async function faucet() {
     setBusy(true);
-    const id = push({ kind: "pending", title: "Requesting 10,000 test tUSDC" });
+    const id = push({ kind: "pending", title: "Requesting test funds" });
     const res = await fetch("/api/faucet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId }) });
-    const body = (await res.json()) as { txs?: string[]; error?: string };
-    update(id, res.ok ? { kind: "ok", title: "10,000 tUSDC sent to your wallet", hashes: body.txs } : { kind: "error", title: "Faucet", detail: body.error });
+    const body = (await res.json()) as { txs?: string[]; tusdc?: string | null; near?: string | null; error?: string };
+    const sent = [body.tusdc && `${Number(body.tusdc).toLocaleString("en-US")} tUSDC`, body.near && `${body.near} NEAR`].filter(Boolean).join(" and ");
+    update(id, res.ok ? { kind: "ok", title: `${sent} sent to your wallet`, hashes: body.txs } : { kind: "error", title: "Faucet", detail: body.error });
     setBusy(false);
+    near.refresh();
     onDone();
   }
 
@@ -226,14 +235,14 @@ export function FundsForm({
         </button>
       </div>
 
-      {mode === "deposit" && c.faucet && walletBalance !== undefined && walletBalance < 1_000_000_000n && (
+      {mode === "deposit" && c.faucet && ((walletBalance !== undefined && walletBalance < 1_000_000_000n) || lowNear) && (
         <button disabled={busy} onClick={faucet} className="mt-3 w-full rounded-lg border border-lime/40 py-2.5 text-sm text-lime hover:bg-lime/10 disabled:opacity-40">
-          Get 10,000 test tUSDC first
+          {walletBalance !== undefined && walletBalance >= 1_000_000_000n ? "Get 0.3 test NEAR for gas first" : `Get 10,000 test tUSDC${lowNear ? " and 0.3 NEAR" : ""} first`}
         </button>
       )}
 
       <button
-        disabled={busy || !raw || raw <= 0n || raw > max}
+        disabled={busy || lowNear || !raw || raw <= 0n || raw > max}
         onClick={submit}
         className="mt-5 w-full rounded-lg bg-lime py-3 font-medium text-ink disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -248,6 +257,7 @@ export function FundsForm({
             </button>
           )}
           {mode === "deposit" && walletMax === 0n && c.faucet && "Use the faucet above to get test tUSDC."}
+          {lowNear && walletMax > 0n && (c.faucet ? "The faucet above sends 0.3 test NEAR." : "Add NEAR to your wallet first.")}
         </p>
       )}
       <p className="mt-3 text-[0.7rem] leading-5 text-white/45">
