@@ -113,29 +113,6 @@ near contract call-function as-read-only fundswap.near get_market json-args '{"m
 
 → The first call returns the market's mark rate (1e12 = 100 % APR), best bid and ask in bp, open interest (`long_oi`), `volume_24h` and mode. The second returns the last trades with taker, maker, size and rate.
 
-## Repository layout
-
-| Path | What |
-| --- | --- |
-| [`contracts/rate-swap`](contracts/rate-swap) | The Rust contract (near-sdk 5.30.1): order book, margin, settlement, liquidation, trade log and hourly candles, `ft_on_transfer` with `credit_to`, and withdrawals into `intents.near` |
-| [`contracts/test-token`](contracts/test-token) | A NEP-141 token for the sandbox tests |
-| [`bots`](bots) | The oracle, maker and keeper bots (TypeScript, near-api-js), with systemd units and a deploy script in `bots/deploy` |
-| [`intents`](intents) | The 1Click client (plain `fetch`, shared with the web app), plus scripts for live quotes and the guarded mainnet round trip |
-| [`client`](client) | The Next.js 16 app: landing page and trading UI, wallet connection via near-connect, and cross-chain deposit and withdraw |
-| [`docs/deployments.md`](docs/deployments.md) | Every deployed account and transaction hash, on testnet and mainnet |
-| [`scripts/verify.ts`](scripts/verify.ts) | Read-only check of every claim against the live chain, Base, 1Click and the site |
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI: contract unit and sandbox tests, bot and intents tests, app typecheck, lint and build; `verify.ts` every 6 hours |
-| [`plan.md`](plan.md) | The original build plan, with a status note on what changed |
-
-## Deployed
-
-| | Testnet | Mainnet |
-| --- | --- | --- |
-| Contract | `fundswap-lab.testnet` | `fundswap.near` (code hash `56e7ZTwA1FmubY3Rk1N7Rd3tGwojt5Tmqksq87zrAujs`, same wasm) |
-| Collateral | `tusdc.token.primitives.testnet` | native USDC `17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1` |
-| Governance | `gov.fundswap-lab.testnet` | `gov.fundswap.near` |
-| Bots | oracle, maker, keeper | oracle |
-
 ## Run it locally
 
 You need Node ≥ 24, pnpm 11, Rust with `wasm32-unknown-unknown`, and `cargo-near`.
