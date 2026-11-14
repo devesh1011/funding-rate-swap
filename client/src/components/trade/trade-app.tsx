@@ -183,6 +183,7 @@ function Trade({ initial }: { initial: TradeInitial }) {
                     {markets.map((m) => (
                       <option key={m.id} value={m.id} className="bg-ink text-base">
                         BTC funding · {shortName(m)}
+                        {nowSec >= m.maturity_ts ? " · matured" : ""}
                       </option>
                     ))}
                   </select>
