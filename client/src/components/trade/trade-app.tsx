@@ -121,6 +121,8 @@ function Trade({ initial }: { initial: TradeInitial }) {
 
   const [funds, setFunds] = useState<FundsMode | null>(null);
   const openFunds = (m: FundsMode) => (signedAccountId ? setFunds(m) : void signIn());
+  // On mainnet an empty NEAR wallet means the USDC sits on another chain: start at the NEAR Intents transfer.
+  const depositMode: FundsMode = c.id === "mainnet" && wallet.data === 0n ? "transfer" : "deposit";
   const daysLeft = Math.max(0, Math.ceil((market.maturity_ts - nowSec) / 86_400));
 
   const strip: [string, ReactNode][] = [
@@ -149,7 +151,7 @@ function Trade({ initial }: { initial: TradeInitial }) {
             <div className="hidden md:block">
               <NetSwitch net={c.id} page="trade" />
             </div>
-            <button onClick={() => openFunds("deposit")} className="hidden rounded-lg bg-lime px-5 py-2 text-sm font-medium text-ink hover:brightness-110 sm:block">
+            <button onClick={() => openFunds(depositMode)} className="hidden rounded-lg bg-lime px-5 py-2 text-sm font-medium text-ink hover:brightness-110 sm:block">
               Deposit
             </button>
             {signedAccountId ? (
