@@ -84,21 +84,25 @@ export function OrderTicket({
       : null;
   const crosses = kind !== "Limit" || (tick !== null && (side === "Long" ? market.best_ask !== null && tick >= market.best_ask : market.best_bid !== null && tick <= market.best_bid));
 
+  // The contract keeps a matured market's mode at Active but rejects its orders ("market matured").
+  const matured = now >= market.maturity_ts;
   const problem = !connected
     ? null
-    : market.effective_mode !== "Active"
-      ? `Market is ${market.effective_mode === "CloseOnly" ? "close-only (oracle stale)" : "paused"}`
-      : !account
-        ? "Deposit margin first"
-        : !account.storage_paid
-          ? "Activate your account first (0.1 NEAR storage)"
-          : !sizeRaw || sizeRaw <= 0n
-            ? "Enter a size"
-            : kind !== "Market" && tick === null
-              ? "Rate must be a percent with ≤ 2 decimals"
-              : im + (crosses ? fee : 0) > free
-                ? `Needs ~${usd(im + (crosses ? fee : 0))} free margin, you have ${usd(free)}`
-                : null;
+    : matured
+      ? "Market has matured: it settles at its final rate and takes no new orders"
+      : market.effective_mode !== "Active"
+        ? `Market is ${market.effective_mode === "CloseOnly" ? "close-only (oracle stale)" : "paused"}`
+        : !account
+          ? "Deposit margin first"
+          : !account.storage_paid
+            ? "Activate your account first (0.1 NEAR storage)"
+            : !sizeRaw || sizeRaw <= 0n
+              ? "Enter a size"
+              : kind !== "Market" && tick === null
+                ? "Rate must be a percent with ≤ 2 decimals"
+                : im + (crosses ? fee : 0) > free
+                  ? `Needs ~${usd(im + (crosses ? fee : 0))} free margin, you have ${usd(free)}`
+                  : null;
 
   async function submit() {
     if (!sizeRaw) return;
