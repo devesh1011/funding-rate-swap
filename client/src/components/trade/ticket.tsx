@@ -209,7 +209,7 @@ export function OrderTicket({
         <div className="flex justify-between">
           <dt className="text-white/60">Liquidation rate</dt>
           <dd>
-            {!liq ? "—" : [liq.below !== null ? `< ${pct(liq.below)}` : null, liq.above !== null ? `> ${pct(liq.above)}` : null].filter(Boolean).join(" or ") || "none within ±200%"}
+            {!liq ? "—" : liq.below !== null && liq.below === liq.above ? "Immediately: not enough margin" : [liq.below !== null ? `< ${pct(liq.below)}` : null, liq.above !== null ? `> ${pct(liq.above)}` : null].filter(Boolean).join(" or ") || "none within ±200%"}
           </dd>
         </div>
         <div className="flex justify-between"><dt className="text-white/60">Free margin</dt><dd>{connected ? usd(free) : "—"}</dd></div>
