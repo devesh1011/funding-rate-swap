@@ -175,6 +175,16 @@ This is a hackathon build, and these limits are disclosed rather than hidden:
 - **Mainnet liquidity:** mainnet has no maker. Testnet is the place to trade.
 - **NEAR Intents** runs on mainnet only, so the Transfer tab on testnet points to mainnet.
 
+### Hardening before the cap goes up
+
+These need a contract redeploy or ops work, so the deployed contract does not have them yet:
+
+- **Mark rate:** only trades with enough size behind them move the mark, and one update can move it only so far.
+- **Minimum sizes:** a minimum order size, and a minimum first deposit before `credit_to` opens an account.
+- **Keeper on mainnet:** today only testnet runs one.
+- **Governance:** move `gov.*` to a multisig (SputnikDAO or Trezu) with a timelock.
+- **Oracle:** run the three signers on separate machines, operated by separate parties.
+
 ## Built with
 
 - **Contract:**
